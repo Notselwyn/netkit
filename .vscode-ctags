@@ -1,0 +1,48 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+AUTH_H	src/auth.h	2;"	d
+COMMAND_H	src/command.h	2;"	d
+CORRECT_HASH	src/auth.c	12;"	d	file:
+DEVICE_H	src/device.h	2;"	d
+DEVICE_NAME	src/device.c	14;"	d	file:
+EXTRA_CFLAGS	src/Makefile	/^EXTRA_CFLAGS := -Wall -I$(PWD)$/;"	m
+GET_REF	src/packet.h	9;"	d
+HEADER_FILES	src/Makefile	/^HEADER_FILES := $(wildcard *.h)$/;"	m
+KERNEL_BUILD_DIR	src/Makefile	/^KERNEL_BUILD_DIR := \/home\/user\/code\/linux\/linux-fixed-zdi-1$/;"	m
+MODULE_NAME	src/Makefile	/^MODULE_NAME := netkit_ko$/;"	m
+NETKIT_H	src/netkit.h	2;"	d
+PACKET_H	src/packet.h	2;"	d
+PASSWORD_LEN	src/packet.h	8;"	d
+PUT_REF	src/packet.h	10;"	d
+SRC_FILES	src/Makefile	/^SRC_FILES := auth.c command.c device.c netkit.c packet.c$/;"	m
+_ref_count	src/packet.h	/^    u8 _ref_count;$/;"	m	struct:packet
+command	src/packet.h	/^    u8 command;$/;"	m	struct:packet
+command	src/packet.h	/^    u8 command;$/;"	m	struct:raw_packet_header
+content	src/packet.h	/^    u8 *content;$/;"	m	struct:packet
+content	src/packet.h	/^    u8 content;$/;"	m	struct:raw_packet_header
+device_class	src/device.c	/^static struct class *device_class = NULL;$/;"	v	typeref:struct:class	file:
+device_exit	src/device.c	/^int device_exit(void)$/;"	f
+device_init	src/device.c	/^int device_init(void)$/;"	f
+device_major	src/device.c	/^static int device_major = 0;$/;"	v	file:
+device_open	src/device.c	/^static int device_open(struct inode *inode, struct file *file)$/;"	f	file:
+device_read	src/device.c	/^static ssize_t device_read(struct file *file, char __user *user_buffer, size_t count, loff_t *offset)$/;"	f	file:
+device_write	src/device.c	/^static ssize_t device_write(struct file *file, const char __user *user_buf, size_t count, loff_t *offset)$/;"	f	file:
+fops	src/device.c	/^static const struct file_operations fops = {$/;"	v	typeref:struct:file_operations	file:
+handle_exec	src/command.c	/^static int handle_exec(packet_t* packet)$/;"	f	file:
+is_password_correct	src/auth.c	/^int is_password_correct(u8* password, size_t password_len)$/;"	f
+netkit_exit	src/netkit.c	/^module_exit(netkit_exit);$/;"	v
+netkit_exit	src/netkit.c	/^static void __exit netkit_exit(void)$/;"	f	file:
+netkit_init	src/netkit.c	/^module_init(netkit_init);$/;"	v
+netkit_init	src/netkit.c	/^static int __init netkit_init(void)$/;"	f	file:
+obj-m	src/Makefile	/^obj-m := $(MODULE_NAME).o$/;"	m
+packet	src/packet.h	/^typedef struct packet$/;"	s
+packet_init	src/packet.c	/^packet_t *packet_init(struct raw_packet_header *buffer, size_t count)$/;"	f
+packet_t	src/packet.h	/^} packet_t;$/;"	t	typeref:struct:packet
+password	src/packet.h	/^    u8 password[PASSWORD_LEN];$/;"	m	struct:packet
+password	src/packet.h	/^    u8 password[PASSWORD_LEN];$/;"	m	struct:raw_packet_header
+process_request	src/command.c	/^int process_request(packet_t *packet)$/;"	f
+raw_packet_header	src/packet.h	/^struct raw_packet_header$/;"	s

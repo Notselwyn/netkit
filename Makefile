@@ -1,10 +1,10 @@
 # Makefile for the external kernel module
 
 # Set the name of your module
-MODULE_NAME := netkit_ko
+MODULE_NAME := netkit
 
 # Set the list of source files
-SRC_FILES := auth.c command.c device.c netkit.c packet.c
+SRC_FILES := src/auth.c src/command.c src/device.c src/netkit.c src/packet.c
 
 # Set the list of header files
 HEADER_FILES := $(wildcard *.h)

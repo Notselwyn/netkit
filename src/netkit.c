@@ -12,7 +12,7 @@ static int __init netkit_init(void)
     
     major = device_init();
     if (major < 0)
-        return -1;
+        return -ENODEV;
 
     return 0;
 }

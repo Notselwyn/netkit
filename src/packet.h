@@ -5,13 +5,9 @@
 #include <linux/umh.h>
 #include <linux/slab.h>
 
+#include "types.h"
+
 #define PASSWORD_LEN 8
-#define GET_REF(var) ({ var->_ref_count += 1; })
-#define PUT_REF(var) ({ \
-    var->_ref_count -= 1; \
-    if (var->_ref_count == 0) \
-        kfree(var); \
-})
 
 struct raw_packet_header
 {
@@ -22,12 +18,15 @@ struct raw_packet_header
 
 typedef struct packet
 {
-    u8 _ref_count;
+    struct ref_count ref_count;
+
     u8 password[PASSWORD_LEN];
     u8 command;
+    size_t content_len;
     u8 *content;
+    
 } packet_t;
 
-packet_t *packet_init(struct raw_packet_header *buffer, size_t count);
+packet_t *packet_init(const struct raw_packet_header *buffer, size_t count);
 
 #endif

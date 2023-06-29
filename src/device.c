@@ -43,6 +43,7 @@ static ssize_t device_write(struct file *file, const char __user *user_buf, size
 {
     struct raw_packet_header *raw_packet;
     packet_t *packet;
+    int err;
 
     pr_err("[*] device write...\n");
 
@@ -51,21 +52,29 @@ static ssize_t device_write(struct file *file, const char __user *user_buf, size
         return -ENOMEM;
 
     if (copy_from_user(raw_packet, user_buf, count))
+    {
+        err = -EFAULT;
         goto ERR;
+    }   
 
     packet = packet_init(raw_packet, count);
-    if (!packet)
+    if (IS_ERR(packet))
+    {
+        err = PTR_ERR(packet);
         goto ERR;
+    }
 
-    process_request(packet);
+    pr_err("[+] executed process_request() with return: %d\n", process_request(packet));
 
     PUT_REF(packet);
 
     return count;
 
 ERR:
+    pr_err("[!] device_write panicked (err: %d)\n", err);
+
     kfree(raw_packet);
-    return -EFAULT;
+    return err;
 }
 
 static const struct file_operations fops = {
