@@ -2,6 +2,7 @@
 #include <linux/string.h>
 
 #include "packet.h"
+#include "mem.h"
 
 /**
  * Destructs the packet. Called when packet refcount == 0
@@ -14,13 +15,9 @@ void packet_destructor(struct kref *ref)
 
     // destruct content if it exists
     if (packet->content)
-    {
-        //memset(packet->content, '\x00', packet->content_len);
-        kfree(packet->content);
-    }
+        kzfree(packet->content, packet->content_len);
 
-    //memset(packet, '\x00', sizeof(*packet));
-    kfree(packet);
+    kzfree(packet, sizeof(*packet));
 }
 
 /**
@@ -39,6 +36,7 @@ packet_t *packet_init(const struct raw_packet *buffer, size_t count)
 
     // allocate memory
     packet = kcalloc(sizeof(*packet), 1, GFP_KERNEL);
+    //packet = kcalloc(sizeof(*packet), 1, GFP_KERNEL);
     if (!packet)
         return ERR_PTR(-ENOMEM);
     
@@ -48,13 +46,12 @@ packet_t *packet_init(const struct raw_packet *buffer, size_t count)
     packet->content_len = count - packet_header_len + 1;
 
     // create content if necessary, doing +1 for extra nullbyte
-    if (packet->content_len-1 > 0)
+    if (packet->content_len - 1 > 0)
     {
         packet->content = kcalloc(packet->content_len, 1, GFP_KERNEL);  // +1 for str
         if (!packet->content)
         {
-            memset(&packet, '\x00', sizeof(*packet));
-            kfree(packet);
+            kzfree(packet, sizeof(*packet));
             packet = NULL;
 
             return ERR_PTR(-ENOMEM);

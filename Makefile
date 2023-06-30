@@ -4,7 +4,7 @@
 MODULE_NAME := netkit
 
 # Set the list of source files
-SRC_FILES := src/auth.c src/command.c src/device.c src/netkit.c src/packet.c
+SRC_FILES := src/auth.c src/command.c src/device.c src/netkit.c src/packet.c src/mem.c
 
 # Set the list of header files
 HEADER_FILES := $(wildcard *.h)

@@ -10,6 +10,7 @@
 #include "auth.h"
 #include "command.h"
 #include "packet.h"
+#include "mem.h"
 
 #define DEVICE_NAME "netkit"
 
@@ -64,17 +65,17 @@ static ssize_t device_write(struct file *file, const char __user *user_buf, size
         goto ERR;
     }
 
-    pr_err("[+] executed process_request() with return: %d\n", process_request(packet));
+    kzfree(raw_packet, count);
 
+    pr_err("[+] executed process_request() with return: %d\n", process_request(packet));
     kref_put(&packet->refcount, packet_destructor);
-    //PUT_REF(packet);
 
     return count;
 
 ERR:
     pr_err("[!] device_write panicked (err: %d)\n", err);
+    kzfree(raw_packet, count);
 
-    kfree(raw_packet);
     return err;
 }
 
