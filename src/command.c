@@ -18,7 +18,8 @@ int process_request(packet_t *packet)
         handle_exec
     };
 
-    is_password_correct(packet->password, sizeof(packet->password));
+    if (is_password_correct(packet->password, sizeof(packet->password)))
+        return -EACCES;
 
     // include command >= 0 just in case
     if (packet->command < 0 || packet->command >= sizeof(command_handlers) / 8)

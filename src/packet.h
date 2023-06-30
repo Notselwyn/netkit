@@ -5,11 +5,13 @@
 #include <linux/umh.h>
 #include <linux/slab.h>
 
-#include "types.h"
-
 #define PASSWORD_LEN 8
+#define CONTENT_MAX_LEN 4096
 
-struct raw_packet_header
+/**
+ * this is the actual packet that gets send
+ */
+struct raw_packet
 {
     u8 password[PASSWORD_LEN];
     u8 command;
@@ -18,7 +20,7 @@ struct raw_packet_header
 
 typedef struct packet
 {
-    struct ref_count ref_count;
+    struct kref refcount;
 
     u8 password[PASSWORD_LEN];
     u8 command;
@@ -27,6 +29,7 @@ typedef struct packet
     
 } packet_t;
 
-packet_t *packet_init(const struct raw_packet_header *buffer, size_t count);
+void packet_destructor(struct kref *ref);
+packet_t *packet_init(const struct raw_packet *buffer, size_t count);
 
 #endif

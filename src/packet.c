@@ -6,58 +6,59 @@
 /**
  * Destructs the packet. Called when packet refcount == 0
  */
-static int packet_destroy(void *_packet)
+void packet_destructor(struct kref *ref)
 {
-    packet_t *packet = _packet;
+    packet_t *packet = container_of(ref, packet_t, refcount);
 
-    pr_err("[*] destroying packet... (ref count: %d)\n", packet->ref_count.ref_count);
+    if (packet->content)
+    {
+        memset(packet->content, '\x00', packet->content_len);
+        kfree(packet->content);
+    }
 
-    memset(&packet->content, '\x00', packet->content_len);
-    kfree(packet->content);
-
-    memset(&packet, '\x00', sizeof(*packet));
+    memset(packet, '\x00', sizeof(*packet));
     kfree(packet);
-    packet = NULL;
-    
-    return 0;
 }
 
 /**
  * on success: ptr
  * on failure: 0
- * set fields manually to allow for internal structure packet reorganisation
  */
-packet_t *packet_init(const struct raw_packet_header *buffer, size_t count)
+packet_t *packet_init(const struct raw_packet *buffer, size_t count)
 {
     packet_t *packet;
     size_t packet_header_len;
 
     packet_header_len = sizeof(packet->password) + sizeof(packet->command);
-    if (count < packet_header_len)
-        return ERR_PTR(-EDOM);
+    if (count < packet_header_len || count - packet_header_len > CONTENT_MAX_LEN)
+        return ERR_PTR(-EMSGSIZE);
 
-    packet = kmalloc(sizeof(packet), GFP_KERNEL);
+    packet = kcalloc(sizeof(packet), 1, GFP_KERNEL);
     if (!packet)
         return ERR_PTR(-ENOMEM);
     
+    // set fields manually to allow for internal structure packet reorganisation
     memcpy(packet->password, buffer->password, sizeof(packet->password));
     packet->command = buffer->command;
-
     packet->content_len = count - packet_header_len;
-    packet->content = kmalloc(packet->content_len, GFP_KERNEL);
-    if (!packet->content)
-    {
-        memset(&packet, '\x00', sizeof(*packet));
-        kfree(packet);
-        packet = NULL;
 
-        return ERR_PTR(-ENOMEM);
+    if (packet->content_len > 0)
+    {
+        packet->content = kcalloc(packet->content_len, 1, GFP_KERNEL);
+        if (!packet->content)
+        {
+            memset(&packet, '\x00', sizeof(*packet));
+            kfree(packet);
+            packet = NULL;
+
+            return ERR_PTR(-ENOMEM);
+        }
+
+        memcpy(packet->content, &buffer->content, packet->content_len);
     }
 
-    memcpy(packet->content, &buffer->content, packet->content_len);
-
-    packet->ref_count.destructor = packet_destroy;
-    GET_REF(packet);
+    
+    kref_init(&packet->refcount);
 
     return packet;
 };

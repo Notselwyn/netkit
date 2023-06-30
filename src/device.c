@@ -7,8 +7,8 @@
 #include <linux/device.h>
 
 #include "device.h"
-#include "command.h"
 #include "auth.h"
+#include "command.h"
 #include "packet.h"
 
 #define DEVICE_NAME "netkit"
@@ -41,13 +41,13 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t c
 
 static ssize_t device_write(struct file *file, const char __user *user_buf, size_t count, loff_t *offset)
 {
-    struct raw_packet_header *raw_packet;
+    struct raw_packet *raw_packet;
     packet_t *packet;
     int err;
 
     pr_err("[*] device write...\n");
 
-    raw_packet = kmalloc(count, GFP_KERNEL);
+    raw_packet = kcalloc(count, 1, GFP_KERNEL);
     if (!raw_packet)
         return -ENOMEM;
 
@@ -66,7 +66,8 @@ static ssize_t device_write(struct file *file, const char __user *user_buf, size
 
     pr_err("[+] executed process_request() with return: %d\n", process_request(packet));
 
-    PUT_REF(packet);
+    kref_put(&packet->refcount, packet_destructor);
+    //PUT_REF(packet);
 
     return count;
 
