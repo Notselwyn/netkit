@@ -3,4 +3,5 @@
 *.mod*
 *.symvers
 *.order
+*.o
 tests/
