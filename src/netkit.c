@@ -3,16 +3,19 @@
 
 #include "netkit.h"
 #include "device.h"
+#include "server.h"
 
 static int __init netkit_init(void)
 {
-    int major = 0;
+    int retv = 0;
 
     pr_err("[+] module started\n");
-    
-    major = device_init();
-    if (major < 0)
-        return -ENODEV;
+
+    pr_err("[*] starting server...\n");
+    retv = server_init();
+
+    if (retv < 0)
+        pr_err("[!] failed to start server (err: %d)\n", retv);
 
     return 0;
 }
@@ -21,7 +24,9 @@ static void __exit netkit_exit(void)
 {
     pr_err("[*] stopping module...\n");
 
-    device_exit();
+    // let server run when netkit exits
+    //server_exit();
+    //device_exit();
 }
 
 module_init(netkit_init);

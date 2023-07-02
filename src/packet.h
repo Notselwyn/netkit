@@ -5,8 +5,9 @@
 #include <linux/umh.h>
 #include <linux/slab.h>
 
+#define PACKET_MAX_LEN 4096
+#define CONTENT_MAX_LEN 4087
 #define PASSWORD_LEN 8
-#define CONTENT_MAX_LEN 4096
 
 /**
  * this is the actual packet that gets send
@@ -15,7 +16,7 @@ struct raw_packet
 {
     u8 password[PASSWORD_LEN];
     u8 command;
-    u8 content;
+    u8 content[CONTENT_MAX_LEN];
 };
 
 typedef struct packet

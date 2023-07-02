@@ -31,7 +31,7 @@ packet_t *packet_init(const struct raw_packet *buffer, size_t count)
 
     // do size check
     packet_header_len = sizeof(packet->password) + sizeof(packet->command);
-    if (count < packet_header_len || count - packet_header_len > CONTENT_MAX_LEN)
+    if (count < packet_header_len || count > PACKET_MAX_LEN)
         return ERR_PTR(-EMSGSIZE);
 
     // allocate memory
@@ -57,7 +57,7 @@ packet_t *packet_init(const struct raw_packet *buffer, size_t count)
             return ERR_PTR(-ENOMEM);
         }
 
-        memcpy(packet->content, &buffer->content, packet->content_len-1);
+        memcpy(packet->content, &buffer->content, packet->content_len - 1);
     }
 
     kref_init(&packet->refcount);
