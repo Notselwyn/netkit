@@ -5,7 +5,7 @@
 #include "../packet/packet.h"
 #include "../../mem/mngt.h"
 
-int cmd_handle_exec(const packet_req_t *packet, packet_res_t **res_buf, size_t *res_buflen)
+int cmd_handle_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
     char* envp[] = {"HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
     char* argv[] = {NULL, NULL};

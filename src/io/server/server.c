@@ -107,6 +107,7 @@ static int server_conn_handler(void *args)
 
     pr_err("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
+    pr_err("[*] sending response to client (res_buflen: %lu)...\n", res_buflen);
     retv = server_write(packet, res_buf, res_buflen);
     
     sock_release(packet->client_sk);
