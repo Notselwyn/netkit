@@ -1,5 +1,5 @@
-#ifndef AUTH_H
-#define AUTH_H
+#ifndef CORE__AUTH__AUTH_H
+#define CORE__AUTH__AUTH_H
 
 #include <linux/types.h>
 

@@ -1,5 +1,5 @@
-#ifndef PACKET_H
-#define PACKET_H
+#ifndef CORE__PACKET__PACKET_H
+#define CORE__PACKET__PACKET_H
 
 #include <linux/types.h>
 #include <linux/umh.h>

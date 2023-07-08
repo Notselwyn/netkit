@@ -1,5 +1,5 @@
-#ifndef IO__INT_IFACE_H
-#define IO__INT_IFACE_H
+#ifndef IO__IFACE_H
+#define IO__IFACE_H
 
 #include <linux/types.h>
 

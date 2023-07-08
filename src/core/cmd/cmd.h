@@ -1,5 +1,5 @@
-#ifndef COMMAND_IFACE_H
-#define COMMAND_IFACE_H
+#ifndef CORE__CMD__CMD_H
+#define CORE__CMD__CMD_H
 
 #include <linux/types.h>
 
