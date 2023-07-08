@@ -76,25 +76,27 @@ static size_t server_read(struct socket *sk_client, u8* req_buf, size_t req_bufl
     return count;
 }
 
-/*static size_t server_write(void *conn, u8 *buf, size_t buflen)
+static size_t server_write(const server_packet_t *packet, u8 *req_buf, size_t req_buflen)
 {
-    struct socket *sk_client = ((server_conn_t*)conn)->sk_client;
 	struct msghdr msg;
-	struct kvec vec;
+	struct kvec vec = {
+        .iov_base = req_buf,
+        .iov_len = req_buflen
+    };
     int count;
 
     memset(&msg, '\x00', sizeof(msg));
 
-    vec.iov_base = buf;
-    vec.iov_len = buflen;
+    //vec.iov_base = req_buf;
+    //vec.iov_len = req_buflen;
 
-    count = kernel_sendmsg(sk_client, &msg, &vec, 1, buflen);
+    count = kernel_sendmsg(packet->client_sk, &msg, &vec, 1, req_buflen);
     if (count < 0) {
         pr_err("[!] sock_recvmsg() failed (err: %d)\n", count);
     }
 
     return count;
-}*/
+}
 
 static int server_conn_handler(void *args)
 {
@@ -105,11 +107,13 @@ static int server_conn_handler(void *args)
 
     pr_err("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
+    retv = server_write(packet, res_buf, res_buflen);
     
-    kzfree(res_buf, res_buflen);
-    kzfree(packet->content, sizeof(struct raw_packet));
+    sock_release(packet->client_sk);
+    kzfree(packet->req_buf, sizeof(packet->req_buf));
     kzfree(packet, sizeof(*packet));
-
+    kzfree(res_buf, res_buflen);
+    
     return retv;
 }
 
@@ -123,7 +127,7 @@ static int server_conn_loop(void* args)
     struct task_struct *conn_task;
     struct socket *server_sk;
     struct socket *client_sk;
-    struct server_packet_t *packet;
+    server_packet_t *packet;
     int conn_retv;
     int retv = 0;
 
@@ -165,11 +169,11 @@ static int server_conn_loop(void* args)
             goto LAB_CONN_OUT_NO_PACKET;
 
         packet->client_sk = client_sk;
-        packet->req_buf = kzmalloc(sizeof(struct raw_packet), GFP_KERNEL);
+        packet->req_buf = kzmalloc(MAX_SERVER_PACKET_SIZE, GFP_KERNEL);
         if (!packet->req_buf)
-            goto LAB_CONN_OUT_NO_CONTENT;
+            goto LAB_CONN_OUT_NO_REQBUF;
 
-        packet->req_buflen = server_read(packet->client_sk, packet->req_buf, sizeof(struct raw_packet));
+        packet->req_buflen = server_read(packet->client_sk, packet->req_buf, MAX_SERVER_PACKET_SIZE);
         if (packet->req_buflen < 0)
         {
             pr_err("[!] failed to read bytes from connection\n");
@@ -182,7 +186,7 @@ static int server_conn_loop(void* args)
         pr_err("[+] starting server conn handler\n");
 
         // child should kfree(content_len) and kfree(content_len->content)
-        conn_task = kthread_run(server_conn_handler, pk_content_len, kthread_name);
+        conn_task = kthread_run(server_conn_handler, packet, kthread_name);
 
         if (IS_ERR(conn_task))
         {
@@ -190,9 +194,11 @@ static int server_conn_loop(void* args)
             goto LAB_CONN_OUT;
         }
 
+        continue;
+
 LAB_CONN_OUT:
-        kzfree(packet->content, sizeof(struct raw_packet));
-LAB_CONN_OUT_NO_CONTENT:
+        kzfree(packet->req_buf, MAX_SERVER_PACKET_SIZE);
+LAB_CONN_OUT_NO_REQBUF:
         kzfree(packet, sizeof(*packet));
         packet = NULL;
 LAB_CONN_OUT_NO_PACKET:

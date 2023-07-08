@@ -7,6 +7,8 @@
 //int server_exit(void);
 //int server_conn_destroy(struct kref *ref);
 
+#define MAX_SERVER_PACKET_SIZE 8096
+
 extern const struct io_ops IO_SERVER_OPS;
 
 typedef struct server_packet {

@@ -9,7 +9,7 @@
  * Destructs the packet. Called when packet refcount == 0
  */
 //void packet_destructor(struct kref *ref)
-void packet_destructor(packet_t *packet)
+void packet_destructor(packet_req_t *packet)
 {
     pr_err("[*] destructing packet...");
 
@@ -24,15 +24,15 @@ void packet_destructor(packet_t *packet)
  * on success: ptr
  * on failure: 0
  */
-packet_t *packet_init(const struct raw_packet *buffer, size_t count)
+packet_req_t *packet_req_init(const struct raw_packet_req *buffer, size_t count)
 {
-    packet_t *packet;
+    packet_req_t *packet;
     size_t packet_header_len;
 
     pr_err("[*] do size check\n");
     // do size check
     packet_header_len = sizeof(packet->password) + sizeof(packet->cmd_id);
-    if (count < packet_header_len || count > PACKET_MAX_LEN)
+    if (count < packet_header_len || count > MAX_REQ_PACKET_LEN)
         return ERR_PTR(-EMSGSIZE);
 
     pr_err("[*] allocating packet\n");
