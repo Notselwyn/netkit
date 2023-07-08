@@ -7,10 +7,12 @@
 #include <linux/device.h>
 
 #include "device.h"
-#include "auth.h"
-#include "command.h"
-#include "packet.h"
-#include "mem.h"
+
+#include "../../auth.h"
+#include "../../command.h"
+#include "../../protocol/netkit/packet.h"
+#include "../../mem.h"
+#include "../child_ops.h"
 
 #define DEVICE_NAME "netkit"
 
@@ -129,3 +131,10 @@ int device_exit(void)
     
     return 0;
 }
+
+const struct io_ops io_device_ops = {
+    .init = device_init,
+    .exit = device_exit,
+    .read = NULL,
+    .write = NULL
+};

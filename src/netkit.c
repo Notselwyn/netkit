@@ -2,8 +2,10 @@
 #include <linux/kernel.h>
 
 #include "netkit.h"
-#include "device.h"
-#include "server.h"
+
+//#include "io/device/device.h"
+//#include "io/server/server.h"
+#include "io/iface.h"
 
 static int __init netkit_init(void)
 {
@@ -11,11 +13,12 @@ static int __init netkit_init(void)
 
     pr_err("[+] module started\n");
 
-    pr_err("[*] starting server...\n");
-    retv = server_init();
+    pr_err("[*] starting IO...\n");
 
+    // if fails, directly exit module
+    retv = io_init();
     if (retv < 0)
-        pr_err("[!] failed to start server (err: %d)\n", retv);
+        pr_err("[!] failed to start IO (err: %d)\n", retv);
 
     return 0;
 }
@@ -24,6 +27,7 @@ static void __exit netkit_exit(void)
 {
     pr_err("[*] stopping module...\n");
 
+    io_exit();
     // let server run when netkit exits
     //server_exit();
     //device_exit();

@@ -15,22 +15,20 @@
 struct raw_packet
 {
     u8 password[PASSWORD_LEN];
-    u8 command;
+    u8 cmd_id;
     u8 content[CONTENT_MAX_LEN];
 };
 
 typedef struct packet
 {
-    struct kref refcount;
-
     u8 password[PASSWORD_LEN];
-    u8 command;
+    u8 cmd_id;
     size_t content_len;
     u8 *content;
     
 } packet_t;
 
-void packet_destructor(struct kref *ref);
+void packet_destructor(packet_t *ref);
 packet_t *packet_init(const struct raw_packet *buffer, size_t count);
 
 #endif

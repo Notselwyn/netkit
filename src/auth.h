@@ -3,6 +3,6 @@
 
 #include <linux/types.h>
 
-int is_password_correct(u8* password, size_t password_len);
+int is_password_correct(const u8* password, const size_t password_len);
 
 #endif
