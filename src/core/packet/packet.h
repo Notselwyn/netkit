@@ -27,7 +27,7 @@ struct raw_packet_req
     u8 password[PASSWORD_LEN];
     u8 cmd_id;
     u8 content[MAX_REQ_CONTENT_LEN];
-};
+} __packed;
 
 typedef struct packet_req
 {
@@ -42,13 +42,13 @@ struct packet_status
 {
     int type;
     u8 domain;
-};
+} __packed;
 
-typedef struct packet_res
+struct raw_packet_res
 {
     struct packet_status status;
     u8 content[1];
-} packet_res_t;
+} __packed;
 
 void packet_destructor(packet_req_t *ref);
 packet_req_t *packet_req_init(const struct raw_packet_req *buffer, size_t count);

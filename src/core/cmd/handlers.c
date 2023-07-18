@@ -10,9 +10,7 @@
 int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
     struct file *file;
-    //size_t res_buflen_old = 0;
     char *tmp_buf;
-    size_t tmp_buflen;
     int retv = 0;
 
     file = filp_open(packet->content, O_RDONLY, 0);
@@ -22,10 +20,12 @@ int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_b
         return PTR_ERR(file);
     }
 
-    tmp_buflen = 4096;
-    tmp_buf = kzmalloc(tmp_buflen, GFP_KERNEL);
+    tmp_buf = kzmalloc(4096, GFP_KERNEL);
     if (IS_ERR(tmp_buf))
-        return PTR_ERR(tmp_buf);
+    {
+        retv = PTR_ERR(tmp_buf);
+        goto LAB_OUT_NO_FILP;
+    }
 
     pr_err("[*] reading file (%p, %p)...\n", file, tmp_buf);
     retv = kernel_read(file, tmp_buf, 4096, NULL);
@@ -39,11 +39,11 @@ int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_b
     *res_buf = kzmalloc(retv, GFP_KERNEL);
     if (IS_ERR(*res_buf))
     {
+        retv = PTR_ERR(*res_buf);
         *res_buf = NULL;
         *res_buflen = 0;
-        kzfree(tmp_buf, tmp_buflen);
 
-        return PTR_ERR(*res_buf);
+        goto LAB_OUT;
     }
 
     memcpy(*res_buf, tmp_buf, *res_buflen);
@@ -65,9 +65,14 @@ int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_b
     }
 
 LAB_OUT:
-    filp_close(file, NULL);    
-    kzfree(tmp_buf, tmp_buflen);
-    return 0;
+    filp_close(file, NULL);
+LAB_OUT_NO_FILP:
+    kzfree(tmp_buf, 4096);
+
+    if (retv >= 0)
+        return 0;
+
+    return retv;
 }
 
 int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)

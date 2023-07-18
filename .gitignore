@@ -4,5 +4,7 @@
 *.symvers
 *.order
 *.o
+vm.pid
 tests/
 image/
+vm.log

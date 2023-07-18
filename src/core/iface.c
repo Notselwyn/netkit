@@ -6,7 +6,7 @@
 
 #include "../mem/mngt.h"
 
-int core_process(const u8 *req_buf, size_t req_buflen, packet_res_t **res_buf, size_t *res_buflen)
+int core_process(const u8 *req_buf, size_t req_buflen, struct raw_packet_res **res_buf, size_t *res_buflen)
 {
     packet_req_t *packet_req;
     u8* cmd_res_buf = NULL;
@@ -45,13 +45,18 @@ int core_process(const u8 *req_buf, size_t req_buflen, packet_res_t **res_buf, s
         goto LAB_OUT;
     }
 
-
 LAB_OUT:
-    *res_buf = kzmalloc(sizeof(packet_res_t) + cmd_res_buflen - 1, GFP_KERNEL);
+    *res_buflen = sizeof(struct raw_packet_res) + cmd_res_buflen - 1;
+    *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
     if (!*res_buf)
-        return -ENOMEM;
+    {
+        *res_buflen = 0;
+        if (cmd_res_buf)
+            kzfree(cmd_res_buf, cmd_res_buflen);
 
-    *res_buflen = sizeof(packet_res_t) + cmd_res_buflen;
+        return -ENOMEM;
+    }
+
     (*res_buf)->status.type = retv;
     (*res_buf)->status.domain = domain;
 
@@ -62,5 +67,6 @@ LAB_OUT:
     }
 
     pr_err("[*] res_buf->status: %d\n", (*res_buf)->status.type);
+
     return (*res_buf)->status.type;
 }
