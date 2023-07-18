@@ -5,6 +5,6 @@
 
 #include "../packet/packet.h"
 
-int cmd_process(const packet_req_t *packet, packet_res_t **res_buf, size_t *res_buflen);
+int cmd_process(const packet_req_t *req_packet, u8 **res_buf, size_t *res_buflen);
 
 #endif

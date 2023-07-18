@@ -43,6 +43,7 @@ packet_req_t *packet_req_init(const struct raw_packet_req *buffer, size_t count)
         return ERR_PTR(-ENOMEM);
     
     // set fields manually to allow for field randomization
+    packet->auth_id = buffer->auth_id;
     memcpy(packet->password, buffer->password, sizeof(packet->password));
     packet->cmd_id = buffer->cmd_id;
     packet->content_len = count - packet_header_len + 1;  // +1 for null byte

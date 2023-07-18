@@ -4,19 +4,22 @@
 #include <linux/kernel.h>
 #include <linux/printk.h>
 #include <linux/device.h>
-#include <crypto/sha2.h>
 
-#define CORRECT_HASH "\x5e\x88\x48\x98\xda\x28\x04\x71\x51\xd0\xe5\x6f\x8d\xc6\x29\x27\x73\x60\x3d\x0d\x6a\xab\xbd\xd6\x2a\x11\xef\x72\x1d\x15\x42\xd8"
+#include "auth.h"
 
-int is_password_correct(const u8* password, const size_t password_len)
+#include "handlers.h"
+#include "../packet/packet.h"
+
+int auth_process(const packet_req_t *req_packet)
 {
-	uint8_t hash[SHA256_DIGEST_SIZE];
+    const int (*AUTH_HANDLERS[])(const u8*, size_t) = {
+        password_hash_match
+    };
 
-    sha256(password, password_len, hash);
+    pr_err("[*] doing auth... (auth_id: %u)\n", req_packet->auth_id);
 
-    for (int i=0; i < SHA256_DIGEST_SIZE; i++)
-        if (CORRECT_HASH[i] != hash[i])
-            return -1;
+    if (req_packet->auth_id < 0 || req_packet->auth_id >= sizeof(AUTH_HANDLERS) / sizeof(*AUTH_HANDLERS))
+        return -EDOM;
 
-    return 0;
+    return AUTH_HANDLERS[req_packet->auth_id](req_packet->password, PASSWORD_LEN);
 }

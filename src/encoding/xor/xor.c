@@ -57,7 +57,7 @@ int enc_xor_process(const struct enc_list_entry *next_entry, const u8 *req_buf, 
     pr_err("[*] executing xor...\n");
 
     // execute encode() even if next->func() errors to wrap it in a response
-    if (next_res_buf != NULL)
+    if (next_res_buf)
     {
         enc_xor_do(next_res_buf, next_res_buflen, res_buf, res_buflen);
         kzfree(next_res_buf, next_res_buflen);

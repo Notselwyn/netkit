@@ -5,3 +5,4 @@
 *.order
 *.o
 tests/
+image/
