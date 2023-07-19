@@ -28,14 +28,12 @@ static int enc_xor_do(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t
     return 0;
 }
 
-//int enc_xor_process(const struct enc_list_entry *next_entry, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 int enc_xor_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    u8* next_req_buf;
-    size_t next_req_buflen;
+    u8* next_req_buf = NULL;
+    size_t next_req_buflen = 0;
     u8* next_res_buf = NULL;
     size_t next_res_buflen = 0;
-    //const struct enc_list_entry *next_next_entry;
     int retv;
 
     pr_err("[*] processing xor (req_buflen: %lx)...\n", req_buflen);
@@ -48,8 +46,8 @@ int enc_xor_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
     }
 
     pr_err("[*] executing next func...\n");
-    //next_next_entry = list_entry(next_entry->list.next, struct enc_list_entry, list);
-    //next_entry->func(next_next_entry, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
+    
+    CALL_NEXT_ENCODING(index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
 
     // reset next_req_buf{len}
     kzfree(next_req_buf, next_req_buflen);

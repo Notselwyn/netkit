@@ -6,8 +6,11 @@
 int enc_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
 
 
-//const int (**ENC_FUNCTIONS)(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
+extern const int (*ENC_FUNCTIONS[])(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
 
+#define CALL_NEXT_ENCODING(index, p1, p2, p3, p4) ({ \
+    ENC_FUNCTIONS[index](index, p1, p2, p3, p4); \
+})
 
 struct enc_list_entry {
     struct list_head list;

@@ -13,7 +13,6 @@
 
 #include "../../core/cmd/cmd.h"
 #include "../../core/packet/packet.h"
-#include "../../mutex.h"
 #include "../../mem/mngt.h"
 
 #define SERVER_IP "0.0.0.0"
