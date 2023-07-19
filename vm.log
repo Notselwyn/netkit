@@ -1,1 +1,0 @@
-qemu-system-x86_64: -drive file=./image/bullseye.img,format=raw: Could not open './image/bullseye.img': No such file or directory
