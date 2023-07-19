@@ -215,22 +215,6 @@ LAB_OUT_NO_SOCK:
     return retv;
 }
 
-int server_kthread_stop_existing(const char *name)
-{
-    int retv = 0;
-
-    pr_err("[*] stopping server...\n");
-
-    retv = kthread_stop_by_name(name);
-    if (likely(retv == -ESRCH)) {
-        pr_err("[-] no existing proc found\n");
-        return 0;
-    } else if (unlikely(retv >= 0))
-        pr_err("[+] successfully terminated existing proc\n");
-
-    return retv;
-}
-
 /**
  * Initializes the kthread for the server
  * Return: 0 if successful
