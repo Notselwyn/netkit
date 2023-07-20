@@ -67,7 +67,7 @@ int enc_xor_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
 
     if (retv < 0)
     {
-        pr_err("[!] xor 1 failed\n");
+        pr_err("[!] xor 2 failed\n");
         return retv;
     }
 

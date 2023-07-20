@@ -23,8 +23,6 @@ const int (*ENC_FUNCTIONS[])(u8 index, const u8 *req_buf, size_t req_buflen, u8 
     enc_last_process
 };
 
-
-
 /**
  * heap guide (req):
  *  - caller allocates

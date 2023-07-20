@@ -9,7 +9,7 @@ SRC_FILES += src/core/iface.c src/core/auth/auth.c src/core/auth/handlers.c src/
 SRC_FILES += src/encoding/iface.c src/encoding/xor/xor.c
 SRC_FILES += src/io/iface.c src/io/server/server.c
 SRC_FILES += src/mem/mngt.c
-SRC_FILES += src/monitor/mutex.c
+SRC_FILES += src/sys/file.c src/sys/kernel.c  src/sys/mutex.c src/sys/socket.c
 
 # Set the list of header files
 #HEADER_FILES := $(wildcard *.h)
@@ -24,7 +24,7 @@ obj-m := $(MODULE_NAME).o
 $(MODULE_NAME)-objs := $(SRC_FILES:.c=.o)
 
 all:
-	make -C $(KERNEL_BUILD_DIR) M=$(PWD) modules
+	make -C $(KERNEL_BUILD_DIR) M=$(PWD) KBUILD_EXTRA_SYMBOLS=$(PWD)/src/kernel.symvers modules
 
 clean:
 	make -C $(KERNEL_BUILD_DIR) M=$(PWD) clean

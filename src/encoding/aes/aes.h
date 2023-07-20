@@ -5,6 +5,6 @@
 
 #include "../iface.h"
 
-int enc_aes_process(const struct enc_list_entry *next_entry, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
+int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
 
 #endif
