@@ -7,11 +7,9 @@
 
 void *kzmalloc(size_t size, int flags)
 {
-    void *buf = kmalloc(size, flags);
+    void *buf = kcalloc(1, size, flags);
     if (!buf)
         return ERR_PTR(-ENOMEM);
-
-    memset(buf, '\x00', size);
 
     return buf;
 }
