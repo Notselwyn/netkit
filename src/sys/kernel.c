@@ -1,7 +1,7 @@
 #include <linux/printk.h>
 #include <linux/kthread.h>
 #include <linux/freezer.h>
-#include <net/netfilter/nf_conntrack_core.h>
+#include <linux/kprobes.h>
 
 #include "file.h"
 
@@ -15,7 +15,7 @@ void *get_sys_call_table(void)
     return NULL;
 }
 
-static void *get_kallsyms_scan(void)
+/*static void *get_kallsyms_scan(void)
 {
     // _printk:          ffffffff8116d120
     // sys_call_table:   ffffffff82a03060 
@@ -59,15 +59,15 @@ static void *get_kallsyms_scan(void)
 
     }
 
-    /*retv = file_read("/proc/kallsyms", &kallsyms_buf, &kallsyms_buflen);
+    retv = file_read("/proc/kallsyms", &kallsyms_buf, &kallsyms_buflen);
     if (retv < 0)
     {
         pr_err("[!] failed to read /proc/kallsyms\n");
-    }*/
+    }
 
 
     return NULL;
-}
+}*/
 
 void *get_kallsyms(void)
 {
@@ -78,5 +78,7 @@ void *get_kallsyms(void)
 
     ret = register_kprobe(&kp);
     if (ret < 0)
-        return ret;
+        return ERR_PTR(ret);
+
+    return NULL;
 }

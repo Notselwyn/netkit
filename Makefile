@@ -24,7 +24,7 @@ obj-m := $(MODULE_NAME).o
 $(MODULE_NAME)-objs := $(SRC_FILES:.c=.o)
 
 all:
-	make -C $(KERNEL_BUILD_DIR) M=$(PWD) KBUILD_EXTRA_SYMBOLS=$(PWD)/src/kernel.symvers modules
+	make -C $(KERNEL_BUILD_DIR) M=$(PWD) modules
 
 clean:
 	make -C $(KERNEL_BUILD_DIR) M=$(PWD) clean
