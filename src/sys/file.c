@@ -2,6 +2,7 @@
 #include <linux/slab.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
+#include <linux/umh.h>
 
 #include "../sys/mem.h"
 
@@ -81,17 +82,14 @@ int file_write(const char *filename, const u8 *content, size_t content_len)
     struct file *file;
     int retv;
 
-    //file_pathlen = strlen(packet->content);
-    file = filp_open(filename, O_WRONLY | O_CREAT, 0);
+    file = filp_open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
     if (IS_ERR(file))
     {
         pr_err("[!] failed to open file\n");
         return PTR_ERR(file);
     }
 
-    //pr_err("[*] writing size: %lu\n", packet->content_len - file_pathlen - 3);
-    pr_err("[*] writing size: %lu\n", content_len);
-    //retv = kernel_write(file, packet->content + file_pathlen + 1, packet->content_len - file_pathlen - 3, 0);
+    pr_err("[*] writing size: %ld\n", content_len);
     retv = kernel_write(file, content, content_len, 0);
     filp_close(file, NULL);
     if (retv < 0)
@@ -101,4 +99,9 @@ int file_write(const char *filename, const u8 *content, size_t content_len)
     }
     
     return retv;
+}
+
+int file_exec(const char *path, char **argv, char **envp)
+{
+    return call_usermodehelper(path, argv, envp, UMH_WAIT_PROC);
 }

