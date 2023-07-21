@@ -5,6 +5,7 @@
 *.order
 *.o
 *.o.d
+*.code-workspace
 vm.pid
 tests/
 image/

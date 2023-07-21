@@ -2,6 +2,7 @@
 
 TODO:
 - Fix proxy
+- Fix kconfig
 - Fix exit
 - Implement AES-256-CBC layer
 - Implement TLS layer

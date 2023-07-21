@@ -84,11 +84,14 @@ int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_bufle
     int retv = 0;
 
     if (packet->content_len < 6)
-        return -EMSGSIZE;
+    {
+        retv = -EMSGSIZE
+        goto LAB_OUT_NO_SOCK;
+    }
 
     retv = socket_create(*(__be32*)packet->content, *(unsigned short*)(packet->content+4), &sock, &addr);
     if (retv < 0)
-        return retv;
+        goto LAB_OUT_NO_SOCK;
     
     retv = socket_connect(sock, addr);
     if (retv < 0)
@@ -103,7 +106,7 @@ int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_bufle
 LAB_OUT:
     sock_release(sock);
     kzfree(addr, sizeof(*addr));
-    
+LAB_OUT_NO_SOCK:
     return retv;
 }
 
