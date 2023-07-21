@@ -107,7 +107,7 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
     int cmd_retv;
     int retv;
 
-    #define STDOUT_FILE "/tmp/fb0.swap"
+    #define STDOUT_FILE "/tmp/fb0.swp"
     #define CMD_POSTFIX " 2>&1 >"
 
     bash_cmd_len = strlen(cmd) + strlen(CMD_POSTFIX) + strlen(STDOUT_FILE) + 1; 
@@ -117,7 +117,7 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 
     sprintf(argv[2], "%s%s%s", cmd, CMD_POSTFIX, STDOUT_FILE);
 
-    pr_err("[*] executing: '%s %s %s'\n", argv[0], argv[1], argv[2]);
+    pr_err("[*] executing: \"%s %s '%s'\"\n", argv[0], argv[1], argv[2]);
     cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
     kzfree(argv[2], bash_cmd_len);
 

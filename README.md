@@ -1,6 +1,7 @@
 # Netkit
 
 TODO:
+- Fix file exec stdout
 - Fix proxy
 - Fix kconfig
 - Fix exit
