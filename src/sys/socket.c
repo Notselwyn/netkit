@@ -4,7 +4,18 @@
 #include <linux/in.h>
 #include <linux/inet.h>
 
-#include "../mem/mngt.h"
+#include "../sys/mem.h"
+
+__be32 inet_addr(const char *str)
+{
+    int a, b, c, d;
+    char buf[4];
+
+    sscanf(str,"%d.%d.%d.%d",&a,&b,&c,&d);
+    buf[0] = a; buf[1] = b; buf[2] = c; buf[3] = d;
+
+    return *(__be32*)buf;
+} 
 
 int socket_create(__be32 ip, short port_htons, struct socket **sk_out, struct sockaddr_in **addr_out)
 {
@@ -37,6 +48,29 @@ int socket_create(__be32 ip, short port_htons, struct socket **sk_out, struct so
 int socket_connect(struct socket *sk, struct sockaddr_in *addr)
 {
     return kernel_connect(sk, (struct sockaddr*)addr, sizeof(*addr), 0);
+}
+
+int socket_listen(struct socket *sk, struct sockaddr_in *addr)
+{
+    int retv;
+
+    retv = kernel_bind(sk, (struct sockaddr *)addr, sizeof(*addr));
+    kzfree(addr, sizeof(*addr));
+    if (retv < 0) 
+    {
+        pr_err("[!] failed to bind socket: %d\n", retv);
+        goto LAB_OUT;
+    }
+
+    retv = sk->ops->listen(sk, 10);
+    if (retv < 0)
+    {
+        pr_err("[!] failed to listen on socket (err: %d)\n", retv);
+        goto LAB_OUT;
+    }
+
+LAB_OUT:
+    return retv;
 }
 
 int socket_read(struct socket *sk, u8 **res_buf, size_t *res_buflen)

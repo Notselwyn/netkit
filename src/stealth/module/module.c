@@ -15,12 +15,6 @@ int module_init_(void)
     return 0;
 }
 
-/*
-static inline int mod_sysfs_setup(struct module *mod,
-			   	  const struct load_info *info,
-			   	  struct kernel_param *kparam,
-			   	  unsigned int num_params)
-*/
 int module_exit_(void)
 {
     struct list_head *modules = (struct list_head*)get_kallsyms_lookup_name()("modules");

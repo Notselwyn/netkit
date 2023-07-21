@@ -23,44 +23,6 @@
 
 static struct task_struct *task_loop = NULL;
 
-static struct socket *server_listen(const char* server_ip, unsigned short server_port)
-{
-    static struct socket *sock;
-    struct sockaddr_in *addr;
-    int err;
-
-    // allocate IPv4/TCP socket
-    err = socket_create(in_aton(server_ip), htons(server_port), &sock, &addr);
-    if (err < 0)
-    {
-        pr_err("[!] failed to create socket: %d\n", err);
-        goto LAB_ERR_NO_SOCK;
-    }
-
-    err = kernel_bind(sock, (struct sockaddr *)addr, sizeof(*addr));
-    kzfree(addr, sizeof(*addr));
-    if (err < 0) 
-    {
-        pr_err("[!] failed to bind socket: %d\n", err);
-        goto LAB_ERR;
-    }
-
-    err = sock->ops->listen(sock, 10);
-    if (err < 0)
-    {
-        pr_err("[!] failed to listen on socket (err: %d)\n", err);
-        goto LAB_ERR;
-    }
-
-    return sock;
-
-LAB_ERR:
-    sock_release(sock);
-LAB_ERR_NO_SOCK:
-    return ERR_PTR(err);
-
-}
-
 static int server_conn_handler(void *args)
 {
     server_packet_t *packet = (server_packet_t*)args;
@@ -90,17 +52,24 @@ static int server_conn_loop(void* args)
     unsigned int kthread_name_id;
     struct task_struct *conn_task;
     struct socket *server_sk;
+    struct sockaddr_in *server_addr;
     struct socket *client_sk;
     server_packet_t *packet;
     int conn_retv;
     int retv = 0;
 
-    server_sk = server_listen(SERVER_IP, SERVER_PORT);
-    if (IS_ERR(server_sk))
+    retv = socket_create(inet_addr(SERVER_IP), htons(SERVER_PORT), &server_sk, &server_addr);
+    if (retv < 0)
     {
-        pr_err("[!] failed to get socket (err: %ld)\n", PTR_ERR(server_sk));
-        retv = PTR_ERR(server_sk);
+        pr_err("[!] failed to get socket (err: %d)\n", retv);
         goto LAB_OUT_NO_SOCK;
+    }
+
+    retv = socket_listen(server_sk, server_addr);
+    if (retv < 0)
+    {
+        pr_err("[!] failed to listen (err: %d)\n", retv);
+        goto LAB_OUT;
     }
 
     pr_err("[+] started listening for connections\n");
@@ -163,6 +132,7 @@ LAB_CONN_OUT_NO_PACKET:
         client_sk = NULL;
     }
 
+LAB_OUT:
     pr_err("[*] received kthread_stop. quitting...\n");
     sock_release(server_sk);
 LAB_OUT_NO_SOCK:
