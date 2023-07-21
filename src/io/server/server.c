@@ -38,6 +38,7 @@ static struct socket *server_listen(const char* server_ip, unsigned short server
     }
 
     err = kernel_bind(sock, (struct sockaddr *)addr, sizeof(*addr));
+    kzfree(addr, sizeof(*addr));
     if (err < 0) 
     {
         pr_err("[!] failed to bind socket: %d\n", err);
@@ -55,7 +56,6 @@ static struct socket *server_listen(const char* server_ip, unsigned short server
 
 LAB_ERR:
     sock_release(sock);
-    kzfree(addr, sizeof(*addr));
 LAB_ERR_NO_SOCK:
     return ERR_PTR(err);
 
