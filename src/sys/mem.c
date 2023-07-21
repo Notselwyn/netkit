@@ -3,7 +3,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
-#include "mngt.h"
+#include "mem.h"
 
 void *kzmalloc(size_t size, int flags)
 {

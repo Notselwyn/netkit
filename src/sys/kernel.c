@@ -44,7 +44,7 @@ _sym_type__kallsyms_lookup_name get_kallsyms_lookup_name(void)
     }
 
     sprint_symbol(func_name, (unsigned long)kp.addr);
-    pr_err("[*] sprint_symbol: '%s', get_kallsyms: %px\n", func_name, kp.addr);
+    //pr_err("[*] sprint_symbol: '%s', get_kallsyms: %px\n", func_name, kp.addr);
 
     _sym_addr__allsyms_lookup_name = (_sym_type__kallsyms_lookup_name)kp.addr;
     retv = _sym_addr__allsyms_lookup_name;

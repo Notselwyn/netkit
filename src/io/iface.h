@@ -3,8 +3,6 @@
 
 #include <linux/types.h>
 
-#include "../mem/dynarr.h"
-
 struct io_ops {
     int (*init)(void);
     int (*exit)(void);

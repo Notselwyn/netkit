@@ -9,7 +9,7 @@
 #include "handlers.h"
 
 #include "../packet/packet.h"
-#include "../../mem/mngt.h"
+#include "../../sys/mem.h"
 #include "../../sys/socket.h"
 #include "../../sys/file.h"
 #include "../../netkit.h"
@@ -90,45 +90,8 @@ LAB_OUT:
     return retv;
 }
 
-asmlinkage long sys_delete_module(const char __user *, unsigned int);
 int cmd_handle_exit(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
-    //module_put(netkit_module);
-    //netkit_module->exit();
 
-    // Locate the address of the delete_module syscall using kallsyms.
-    /*void **syscall_table = (void**)kallsyms_lookup_name("sys_call_table");
-
-    // Backup the original delete_module syscall function.
-    int (*sys_delete_module)(const char*, unsigned int) = sys_call_table[__NR_delete_module];*/
-
-    /*unsigned long *sys_call_table;
-
-    sys_call_table = (unsigned long*)kallsyms_lookup_name("sys_call_table");
-    if (!sys_call_table) {
-        printk(KERN_ERR "Failed to find the syscall table address.\n");
-        return -ENXIO;
-    }
-
-    printk(KERN_INFO "Syscall table address: %p\n", sys_call_table);
-
-    // Access individual syscalls using the syscall table.
-    // For example, to access the delete_module syscall:
-    sys_delete_module = (void *)sys_call_table[__NR_delete_module];*/
-
-    //sys_delete_module(netkit_module->name, 0);
-    //syscall(__NR_delete_module, netkit_module->name, 0);
-    typedef long (*_sym_type__sys_delete_module)(const char __user*, unsigned int);
-
-    _sym_type__sys_delete_module sys_delete_module = (_sym_type__sys_delete_module)get_kallsyms_lookup_name()("__do_sys_delete_module");
-
-    pr_err("[*] sys_delete_module: %lx\n", (unsigned long)sys_delete_module);
-
-    pr_err("[*] retv: %ld", sys_delete_module(netkit_module->name, 0));
-    //void* sys_call_table = get_sys_call_table();
-    //pr_err("[*] sys_call_table: %p\n", sys_call_table);
-
-    return 0;
-
-    //return sys_delete_module(netkit_module->name, 0);
+    return -1;
 }

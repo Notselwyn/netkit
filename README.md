@@ -2,8 +2,9 @@
 
 TODO:
 - Fix proxy
-- Fix kallsyms read
-- Find out why kallsyms f->f_op->read_iter is not required from userland
+- Fix exit
 - Implement AES-256-CBC layer
 - Implement TLS layer
 - Netfilter hook
+- Make KASAN less angry with get_kallsyms()
+- Find out why kallsyms f->f_op->read_iter is not required from userland

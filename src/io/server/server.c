@@ -13,7 +13,7 @@
 
 #include "../../core/cmd/cmd.h"
 #include "../../core/packet/packet.h"
-#include "../../mem/mngt.h"
+#include "../../sys/mem.h"
 #include "../../sys/socket.h"
 
 #define SERVER_IP "0.0.0.0"
@@ -173,7 +173,7 @@ LAB_OUT_NO_SOCK:
  * Initializes the kthread for the server
  * Return: 0 if successful
  */
-static int server_init(void)
+int server_init(void)
 {
     int retv = 0;
 
@@ -186,7 +186,7 @@ static int server_init(void)
     return retv;
 }
 
-static int server_exit(void)
+int server_exit(void)
 {
     int retv;
 
@@ -202,8 +202,3 @@ static int server_exit(void)
 
     return retv;
 }
-
-const struct io_ops IO_SERVER_OPS = {
-    .init = server_init,
-    .exit = server_exit
-};
