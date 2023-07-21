@@ -3,20 +3,10 @@
 #include <linux/freezer.h>
 #include <linux/kprobes.h>
 
-#include "kernel.h"
+#include "symbol.h"
 
 #include "file.h"
-#include "../mem/mngt.h"
-
-void *sys_call_table = NULL;
-
-void *get_sys_call_table(void)
-{
-    if (sys_call_table)
-        return sys_call_table;
-
-    return NULL;
-}
+#include "../sys/mem.h"
 
 static _sym_type__kallsyms_lookup_name _sym_addr__allsyms_lookup_name;
 

@@ -4,7 +4,7 @@
 
 #include "module.h"
 
-#include "../../sys/kernel.h"
+#include "../../sys/symbol.h"
 
 // module_init already exists in module.h
 int module_init_(void)
@@ -24,7 +24,6 @@ static inline int mod_sysfs_setup(struct module *mod,
 int module_exit_(void)
 {
     struct list_head *modules = (struct list_head*)get_kallsyms_lookup_name()("modules");
-    struct kset *module_kset = (struct kset*)get_kallsyms_lookup_name()("module_kset");
 
     list_add(&THIS_MODULE->list, modules);
     
