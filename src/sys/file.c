@@ -36,12 +36,12 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
     }
 
     *out_buflen = retv;
-    *out_buf = kzmalloc(retv, GFP_KERNEL);
+    *out_buf = kzmalloc(*out_buflen, GFP_KERNEL);
     if (IS_ERR(*out_buf))
     {
-        retv = PTR_ERR(*out_buf);
         *out_buf = NULL;
         *out_buflen = 0;
+        retv = PTR_ERR(*out_buf);
 
         goto LAB_OUT;
     }
@@ -50,18 +50,17 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
 
     while (retv == 4096)
     {
-        pr_err("[*] reading file...\n");
+        pr_err("[*] reading more file...\n");
         retv = kernel_read(file, tmp_buf, 4096, NULL);
+        if (retv < 0)
+        {
+            pr_err("[!] failed to read bytes\n");
+            goto LAB_OUT;
+        }
     
         kzrealloc(*out_buf, *out_buflen, *out_buflen + retv);
         memcpy(*out_buf + *out_buflen, tmp_buf, retv);
         *out_buflen += retv;
-        
-        if (retv < 0)
-        {
-            pr_err("[!] failed to read file\n");
-            goto LAB_OUT;
-        }
     }
 
 LAB_OUT:

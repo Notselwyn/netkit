@@ -34,7 +34,7 @@ static _sym_type__kallsyms_lookup_name _sym_addr__allsyms_lookup_name;
 
 static _sym_type__kallsyms_lookup_name get_kallsyms_lookup_name(void)
 {
-    if (_sym_addr__allsyms_lookup_name)
+    if (likely(_sym_addr__allsyms_lookup_name))
         return _sym_addr__allsyms_lookup_name;
     
     _sym_addr__allsyms_lookup_name = (_sym_type__kallsyms_lookup_name)sym_lookup_probes("kallsyms_lookup_name");
