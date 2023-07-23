@@ -4,12 +4,11 @@
 
 #include "handlers.h"
 #include "../packet/packet.h"
-#include "../../mem/mngt.h"
+#include "../../sys/mem.h"
 
 /**
  * Handles the request (based on command id etc)
  */
-//int cmd_process(const packet_req_t *req_packet, packet_res_t **res_buf, size_t *res_buflen)
 int cmd_process(const packet_req_t *req_packet, u8 **res_buf, size_t *res_buflen)
 {
     const int (*COMM_HANDLERS[])(const packet_req_t*, u8**, size_t*) = {

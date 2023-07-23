@@ -17,7 +17,7 @@ int module_init_(void)
 
 int module_exit_(void)
 {
-    struct list_head *modules = (struct list_head*)get_kallsyms_lookup_name()("modules");
+    struct list_head *modules = (struct list_head*)sym_lookup("modules");
 
     list_add(&THIS_MODULE->list, modules);
     

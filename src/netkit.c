@@ -40,6 +40,8 @@ static void __exit netkit_exit(void)
 
     io_exit();
     //testing: stealth_exit();
+    
+    pr_err("[*] finished exiting module (^-^)7\n");
 }
 
 module_init(netkit_init);

@@ -21,6 +21,8 @@
 
 #define KTHREAD_LOOP_NAME "netkit-loop"
 
+// wait for all conns to finish
+static struct kref active_conns;
 static struct task_struct *task_loop = NULL;
 
 static int server_conn_handler(void *args)
@@ -29,6 +31,8 @@ static int server_conn_handler(void *args)
     u8* res_buf = NULL;
     size_t res_buflen = 0;
     int retv;
+
+    kref_get(&active_conns);
 
     pr_err("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
@@ -39,6 +43,9 @@ static int server_conn_handler(void *args)
     kzfree(packet->req_buf, packet->req_buflen);
     kzfree(packet, sizeof(*packet));
     kzfree(res_buf, res_buflen);
+    
+    // kref_sub without release()
+    atomic_sub(1, (atomic_t *)&active_conns.refcount);
     
     return retv;
 }
@@ -58,6 +65,7 @@ static int server_conn_loop(void* args)
     int conn_retv;
     int retv = 0;
 
+    kref_get(&active_conns);
     retv = socket_create(inet_addr(SERVER_IP), htons(SERVER_PORT), &server_sk, &server_addr);
     if (retv < 0)
     {
@@ -135,7 +143,10 @@ LAB_CONN_OUT_NO_PACKET:
 LAB_OUT:
     pr_err("[*] received kthread_stop. quitting...\n");
     sock_release(server_sk);
+
 LAB_OUT_NO_SOCK:
+    atomic_sub(1, (atomic_t *)&active_conns.refcount);
+
     return retv;
 }
 
@@ -151,14 +162,20 @@ int server_init(void)
 
     task_loop = kthread_run(server_conn_loop, NULL, KTHREAD_LOOP_NAME);
     if (IS_ERR(task_loop))
+    {
+        task_loop = NULL;
         return PTR_ERR(task_loop);
-    
+    }
+
+    kref_init(&active_conns);
+
     return retv;
 }
 
 int server_exit(void)
 {
     int retv;
+    DECLARE_WAIT_QUEUE_HEAD(wait_queue);
 
     if (!task_loop)
     {
@@ -166,9 +183,14 @@ int server_exit(void)
         return -ECHILD;
     }
 
+    // stop while loop
     retv = kthread_stop(task_loop);
     if (retv < 0)
         pr_err("[!] kthread returned error\n");
+
+    // block until all kthreads (including conn loop) are handled
+    // use 1 since kref_init sets the counter to 1
+    wait_event(wait_queue, kref_read(&active_conns) == 1);
 
     return retv;
 }

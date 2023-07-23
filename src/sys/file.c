@@ -111,6 +111,7 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
     #define CMD_POSTFIX " 2>&1 >"
 
     bash_cmd_len = strlen(cmd) + strlen(CMD_POSTFIX) + strlen(STDOUT_FILE) + 1; 
+    
     argv[2] = kzmalloc(bash_cmd_len, GFP_KERNEL);
     if (IS_ERR(argv[2]))
         return PTR_ERR(argv[2]);

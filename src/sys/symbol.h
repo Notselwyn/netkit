@@ -1,8 +1,6 @@
 #ifndef SYS__KERNEL_H
 #define SYS__KERNEL_H
 
-typedef unsigned long (*_sym_type__kallsyms_lookup_name)(const char*);
-
-_sym_type__kallsyms_lookup_name get_kallsyms_lookup_name(void);
+void *sym_lookup(const char* sym_name);
 
 #endif
