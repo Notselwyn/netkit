@@ -6,7 +6,7 @@
 #include "xor/xor.h"
 
 #include "../core/iface.h"
-#include "../mem/mngt.h"
+#include "../sys/mem.h"
 
 /**
  * function to get rid of the `struct enc_list_entry*` argument for the list

