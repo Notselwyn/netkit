@@ -35,7 +35,5 @@ void *kzrealloc(void* buf_old, size_t size_old, size_t size_new)
     memcpy(buf_new, buf_old, size_old);
     kzfree(buf_old, size_old);
 
-    buf_old = buf_new;
-
     return buf_new;
 }

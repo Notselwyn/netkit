@@ -53,8 +53,8 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
 
     while (retv == 4096)
     {
-        NETKIT_LOG("[*] reading more file...\n");
-        retv = kernel_read(file, tmp_buf, 4096, NULL);
+        NETKIT_LOG("[*] reading more file (current size: %lu)...\n", *out_buflen);
+        retv = kernel_read(file, tmp_buf, 4096, (loff_t *)out_buflen);
         if (retv < 0)
         {
             NETKIT_LOG("[!] failed to read bytes\n");
@@ -62,7 +62,7 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         }
     
         NETKIT_LOG("[*] gonna realloc...\n");
-        kzrealloc(*out_buf, *out_buflen, *out_buflen + retv);
+        *out_buf = kzrealloc(*out_buf, *out_buflen, *out_buflen + retv);
         if (IS_ERR(*out_buf))
         {
             NETKIT_LOG("[!] failed to realloc\n");
@@ -76,6 +76,8 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         memcpy(*out_buf + *out_buflen, tmp_buf, retv);
         *out_buflen += retv;
     }
+    
+    NETKIT_LOG("[*] reading more file (current size: %lu)...\n", *out_buflen);
 
 LAB_OUT:
     filp_close(file, NULL);
