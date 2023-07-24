@@ -178,6 +178,8 @@ int server_exit(void)
     int retv;
     DECLARE_WAIT_QUEUE_HEAD(wait_queue);
 
+    NETKIT_LOG("[*] trying to shutdown IO server...\n");
+
     if (!task_loop)
     {
         NETKIT_LOG("[!] task loop does not exist when exiting\n");
@@ -192,6 +194,8 @@ int server_exit(void)
     // block until all kthreads (including conn loop) are handled
     // use 1 since kref_init sets the counter to 1
     wait_event(wait_queue, kref_read(&active_conns) == 1);
+
+    NETKIT_LOG("[+] all connections are closed\n");
 
     return retv;
 }
