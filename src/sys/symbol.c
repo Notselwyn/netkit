@@ -19,7 +19,7 @@ static void *sym_lookup_probes(const char* sym_name)
     void *retv;
 
     retv = ERR_PTR(register_kprobe(&kp));
-    if (retv < 0)
+    if (IS_ERR(retv))
         return retv;
 
     NETKIT_LOG("[*] kprobe lookup '%s': %px\n", sym_name, kp.addr);
@@ -35,10 +35,17 @@ static _sym_type__kallsyms_lookup_name _sym_addr__allsyms_lookup_name;
 
 static _sym_type__kallsyms_lookup_name get_kallsyms_lookup_name(void)
 {
+    void *retv = NULL;
+
+    // build cache since frequent access and kprobes are slow
     if (likely(_sym_addr__allsyms_lookup_name))
         return _sym_addr__allsyms_lookup_name;
     
-    _sym_addr__allsyms_lookup_name = (_sym_type__kallsyms_lookup_name)sym_lookup_probes("kallsyms_lookup_name");
+    retv = (_sym_type__kallsyms_lookup_name)sym_lookup_probes("kallsyms_lookup_name");
+    if (IS_ERR(retv))
+        return retv;
+
+    _sym_addr__allsyms_lookup_name = retv;
 
     return _sym_addr__allsyms_lookup_name;
 }

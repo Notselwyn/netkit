@@ -18,7 +18,7 @@ static int __init netkit_init(void)
 
     netkit_module = THIS_MODULE;
 
-#if (!IS_ENABLED(CONFIG_NETKIT_DEBUG)) || IS_ENABLED(CONFIG_NETKIT_STEALTH_FORCE)
+#if CONFIG_NETKIT_STEALTH
     NETKIT_LOG("[*] starting stealth...\n");
     retv = stealth_init();
     if (retv < 0)
@@ -42,6 +42,10 @@ static void __exit netkit_exit(void)
 
     io_exit();
     
+#if CONFIG_NETKIT_STEALTH
+    stealth_exit();
+#endif
+
     NETKIT_LOG("[*] finished exiting module (^-^)7\n");
 }
 

@@ -61,7 +61,18 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
             goto LAB_OUT;
         }
     
+        NETKIT_LOG("[*] gonna realloc...\n");
         kzrealloc(*out_buf, *out_buflen, *out_buflen + retv);
+        if (IS_ERR(*out_buf))
+        {
+            NETKIT_LOG("[!] failed to realloc\n");
+            retv = PTR_ERR(*out_buf);
+            *out_buf = NULL;
+            *out_buflen = 0;
+            
+            goto LAB_OUT;
+        }
+        
         memcpy(*out_buf + *out_buflen, tmp_buf, retv);
         *out_buflen += retv;
     }
