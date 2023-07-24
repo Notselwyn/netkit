@@ -125,8 +125,7 @@ LAB_OUT_NO_SOCK:
 int cmd_handle_exit(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
     // run as kthread so underlaying layers can cleanup and round up the IO
-    // conn-xyz --[spawn]--> netkit-exit --[call]--> netkit->exit() --[kill]--> netkit-conn-loop 
-    // there is a race condition
+    // conn-xyz --[spawn]--> netkit-exit --[call]--> netkit->exit() --[kill]--> {netkit-conn-loop, conn-xyz} 
     kthread_run(module_stop, THIS_MODULE, "netkit-exit");
 
     return 0;

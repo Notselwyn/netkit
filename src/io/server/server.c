@@ -24,6 +24,7 @@
 
 // wait for all conns to finish
 static struct kref active_conns;
+DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
 static struct task_struct *task_loop = NULL;
 
 static int server_conn_handler(void *args)
@@ -47,6 +48,7 @@ static int server_conn_handler(void *args)
     
     // kref_sub without release()
     atomic_sub(1, (atomic_t *)&active_conns.refcount);
+    wake_up(&all_conns_handled_wait_queue);
     
     return retv;
 }
@@ -64,7 +66,7 @@ static int server_conn_loop(void* args)
     struct socket *client_sk;
     server_packet_t *packet;
     int conn_retv;
-    int retv = 0;
+    int retv;
 
     kref_get(&active_conns);
     retv = socket_create(inet_addr(SERVER_IP), htons(SERVER_PORT), &server_sk, &server_addr);
@@ -87,9 +89,11 @@ static int server_conn_loop(void* args)
     {
         // conn polling needs to be optimized for speed, to make overhead minimal
         NETKIT_LOG("[*] checking for connection...\n");
-		if (unlikely(try_to_freeze()))
+
+        if (unlikely(try_to_freeze()))
 			continue;
 
+        // use non-blocking socket to be able to respond to kthread_should_stop()
         conn_retv = kernel_accept(server_sk, &client_sk, SOCK_NONBLOCK);
         if (likely(conn_retv == -EAGAIN))
         {
@@ -97,11 +101,12 @@ static int server_conn_loop(void* args)
             continue;
         }
         
-        if (conn_retv < 0) {
+        if (conn_retv < 0)
             continue;
-        }
 
         NETKIT_LOG("[+] received connection\n");
+        
+        NETKIT_LOG("[*] allocating packet...\n");
 
         packet = kzmalloc(sizeof(*packet), GFP_KERNEL);
         if (IS_ERR(packet))
@@ -111,22 +116,19 @@ static int server_conn_loop(void* args)
         retv = socket_read(packet->client_sk, &packet->req_buf, &packet->req_buflen);
         if (retv < 0)
         {
-            NETKIT_LOG("[!] failed to read bytes from connection\n");
+            NETKIT_LOG("[!] failed to read buffer from connection\n");
             goto LAB_CONN_OUT;
         }
+
+        NETKIT_LOG("[*] preparing conn handler...\n");
 
         kthread_name_id = (int)get_random_long();
         sscanf(kthread_name, "netkit-conn-handler-%08x", &kthread_name_id);
 
-        NETKIT_LOG("[+] starting server conn handler\n");
-
         // child should free packet
         conn_task = kthread_run(server_conn_handler, packet, kthread_name);
         if (IS_ERR(conn_task))
-        {
-            NETKIT_LOG("[!] failed to start handler\n");
             goto LAB_CONN_OUT;
-        }
 
         continue;
 
@@ -147,6 +149,7 @@ LAB_OUT:
 
 LAB_OUT_NO_SOCK:
     atomic_sub(1, (atomic_t *)&active_conns.refcount);
+    wake_up(&all_conns_handled_wait_queue);
 
     return retv;
 }
@@ -176,7 +179,6 @@ int server_init(void)
 int server_exit(void)
 {
     int retv;
-    DECLARE_WAIT_QUEUE_HEAD(wait_queue);
 
     NETKIT_LOG("[*] trying to shutdown IO server...\n");
 
@@ -193,7 +195,7 @@ int server_exit(void)
 
     // block until all kthreads (including conn loop) are handled
     // use 1 since kref_init sets the counter to 1
-    wait_event(wait_queue, kref_read(&active_conns) == 1);
+    wait_event(all_conns_handled_wait_queue, kref_read(&active_conns) == 1);
 
     NETKIT_LOG("[+] all connections are closed\n");
 
