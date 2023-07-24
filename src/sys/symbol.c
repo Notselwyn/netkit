@@ -9,6 +9,7 @@
 
 #include "file.h"
 #include "../sys/mem.h"
+#include "../sys/debug.h"
 
 static void *sym_lookup_probes(const char* sym_name)
 {
@@ -21,7 +22,7 @@ static void *sym_lookup_probes(const char* sym_name)
     if (retv < 0)
         return retv;
 
-    pr_err("[*] kprobe lookup '%s': %px\n", sym_name, kp.addr);
+    NETKIT_LOG("[*] kprobe lookup '%s': %px\n", sym_name, kp.addr);
 
     retv = (void*)kp.addr;
     unregister_kprobe(&kp);

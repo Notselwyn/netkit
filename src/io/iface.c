@@ -6,6 +6,7 @@
 #include "server/server.h"
 
 #include "../encoding/iface.h"
+#include "../sys/debug.h"
 
 int io_init(void)
 {
@@ -35,6 +36,6 @@ int io_exit(void)
  */ 
 int io_process(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    pr_err("[*] calling enc_process()...\n");
+    NETKIT_LOG("[*] calling enc_process()...\n");
     return enc_process(req_buf, req_buflen, res_buf, res_buflen);
 }

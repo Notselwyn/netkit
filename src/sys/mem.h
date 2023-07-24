@@ -1,5 +1,5 @@
-#ifndef MEM__MNGT_H
-#define MEM__MNGT_H
+#ifndef SYS__MEM_H
+#define SYS__MEM_H
 
 #include <linux/string.h>
 

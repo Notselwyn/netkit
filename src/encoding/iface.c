@@ -7,13 +7,14 @@
 
 #include "../core/iface.h"
 #include "../sys/mem.h"
+#include "../sys/debug.h"
 
 /**
  * function to get rid of the `struct enc_list_entry*` argument for the list
  */
 static int enc_last_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    pr_err("[*] doing core process...\n");
+    NETKIT_LOG("[*] doing core process...\n");
     return core_process(req_buf, req_buflen, res_buf, res_buflen);
 }
 
@@ -36,7 +37,7 @@ int enc_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_
 {
     CALL_NEXT_ENCODING(0, req_buf, req_buflen, res_buf, res_buflen);
 
-    pr_err("[+] successfully returned from first_entry->func\n");
+    NETKIT_LOG("[+] successfully returned from first_entry->func\n");
 
     return 0;
 }

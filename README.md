@@ -4,6 +4,7 @@ TODO:
 - Fix proxy
 - Fix kconfig
 - Implement kconfig
+- Implement recipes
 - Implement AES-256-CBC layer
 - Implement TLS layer
 - Netfilter hook

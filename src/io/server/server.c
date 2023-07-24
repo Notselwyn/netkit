@@ -15,6 +15,7 @@
 #include "../../core/packet/packet.h"
 #include "../../sys/mem.h"
 #include "../../sys/socket.h"
+#include "../../sys/debug.h"
 
 #define SERVER_IP "0.0.0.0"
 #define SERVER_PORT 8008
@@ -34,9 +35,9 @@ static int server_conn_handler(void *args)
 
     kref_get(&active_conns);
 
-    pr_err("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
+    NETKIT_LOG("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
-    pr_err("[*] sending response to client (res_buflen: %lu)...\n", res_buflen);
+    NETKIT_LOG("[*] sending response to client (res_buflen: %lu)...\n", res_buflen);
     retv = socket_write(packet->client_sk, res_buf, res_buflen);
     
     sock_release(packet->client_sk);
@@ -69,23 +70,23 @@ static int server_conn_loop(void* args)
     retv = socket_create(inet_addr(SERVER_IP), htons(SERVER_PORT), &server_sk, &server_addr);
     if (retv < 0)
     {
-        pr_err("[!] failed to get socket (err: %d)\n", retv);
+        NETKIT_LOG("[!] failed to get socket (err: %d)\n", retv);
         goto LAB_OUT_NO_SOCK;
     }
 
     retv = socket_listen(server_sk, server_addr);
     if (retv < 0)
     {
-        pr_err("[!] failed to listen (err: %d)\n", retv);
+        NETKIT_LOG("[!] failed to listen (err: %d)\n", retv);
         goto LAB_OUT;
     }
 
-    pr_err("[+] started listening for connections\n");
+    NETKIT_LOG("[+] started listening for connections\n");
     
     while (likely(!kthread_should_stop()))
     {
         // conn polling needs to be optimized for speed, to make overhead minimal
-        pr_err("[*] checking for connection...\n");
+        NETKIT_LOG("[*] checking for connection...\n");
 		if (unlikely(try_to_freeze()))
 			continue;
 
@@ -100,7 +101,7 @@ static int server_conn_loop(void* args)
             continue;
         }
 
-        pr_err("[+] received connection\n");
+        NETKIT_LOG("[+] received connection\n");
 
         packet = kzmalloc(sizeof(*packet), GFP_KERNEL);
         if (IS_ERR(packet))
@@ -110,20 +111,20 @@ static int server_conn_loop(void* args)
         retv = socket_read(packet->client_sk, &packet->req_buf, &packet->req_buflen);
         if (retv < 0)
         {
-            pr_err("[!] failed to read bytes from connection\n");
+            NETKIT_LOG("[!] failed to read bytes from connection\n");
             goto LAB_CONN_OUT;
         }
 
         kthread_name_id = (int)get_random_long();
         sscanf(kthread_name, "netkit-conn-handler-%08x", &kthread_name_id);
 
-        pr_err("[+] starting server conn handler\n");
+        NETKIT_LOG("[+] starting server conn handler\n");
 
         // child should free packet
         conn_task = kthread_run(server_conn_handler, packet, kthread_name);
         if (IS_ERR(conn_task))
         {
-            pr_err("[!] failed to start handler\n");
+            NETKIT_LOG("[!] failed to start handler\n");
             goto LAB_CONN_OUT;
         }
 
@@ -141,7 +142,7 @@ LAB_CONN_OUT_NO_PACKET:
     }
 
 LAB_OUT:
-    pr_err("[*] received kthread_stop. quitting...\n");
+    NETKIT_LOG("[*] received kthread_stop. quitting...\n");
     sock_release(server_sk);
 
 LAB_OUT_NO_SOCK:
@@ -158,7 +159,7 @@ int server_init(void)
 {
     int retv = 0;
 
-    pr_err("[*] starting server_conn_loop...\n");
+    NETKIT_LOG("[*] starting server_conn_loop...\n");
 
     task_loop = kthread_run(server_conn_loop, NULL, KTHREAD_LOOP_NAME);
     if (IS_ERR(task_loop))
@@ -179,14 +180,14 @@ int server_exit(void)
 
     if (!task_loop)
     {
-        pr_err("[!] task loop does not exist when exiting\n");
+        NETKIT_LOG("[!] task loop does not exist when exiting\n");
         return -ECHILD;
     }
 
     // stop while loop
     retv = kthread_stop(task_loop);
     if (retv < 0)
-        pr_err("[!] kthread returned error\n");
+        NETKIT_LOG("[!] kthread returned error\n");
 
     // block until all kthreads (including conn loop) are handled
     // use 1 since kref_init sets the counter to 1

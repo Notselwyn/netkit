@@ -8,7 +8,7 @@ static int enc_aes_do(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t
     *res_buflen = req_buflen;
     *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
 
-    pr_err("[*] doing aes...\n");
+    NETKIT_LOG("[*] doing aes...\n");
     if (IS_ERR(*res_buf))
     {
         *res_buf = NULL;
@@ -28,16 +28,16 @@ int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
     size_t next_res_buflen = 0;
     int retv;
 
-    pr_err("[*] processing aes (req_buflen: %lx)...\n", req_buflen);
+    NETKIT_LOG("[*] processing aes (req_buflen: %lx)...\n", req_buflen);
     retv = enc_aes_do(req_buf, req_buflen, &next_req_buf, &next_req_buflen);
     if (retv < 0)
     {
-        pr_err("[!] aes 1 failed\n");
+        NETKIT_LOG("[!] aes 1 failed\n");
  
         return retv;
     }
 
-    pr_err("[*] executing next func...\n");
+    NETKIT_LOG("[*] executing next func...\n");
     
     CALL_NEXT_ENCODING(index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
 
@@ -46,7 +46,7 @@ int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
     next_req_buf = NULL;
     next_req_buflen = 0;
 
-    pr_err("[*] executing aes...\n");
+    NETKIT_LOG("[*] executing aes...\n");
 
     // execute encode() even if next->func() errors to wrap it in a response
     if (next_res_buf)
@@ -59,7 +59,7 @@ int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
 
     if (retv < 0)
     {
-        pr_err("[!] aes 2 failed\n");
+        NETKIT_LOG("[!] aes 2 failed\n");
         return retv;
     }
 

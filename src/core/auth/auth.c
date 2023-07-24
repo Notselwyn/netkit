@@ -9,6 +9,7 @@
 
 #include "handlers.h"
 #include "../packet/packet.h"
+#include "../../sys/debug.h"
 
 int auth_process(const packet_req_t *req_packet)
 {
@@ -16,7 +17,7 @@ int auth_process(const packet_req_t *req_packet)
         password_hash_match
     };
 
-    pr_err("[*] doing auth... (auth_id: %u)\n", req_packet->auth_id);
+    NETKIT_LOG("[*] doing auth... (auth_id: %u)\n", req_packet->auth_id);
 
     if (req_packet->auth_id < 0 || req_packet->auth_id >= sizeof(AUTH_HANDLERS) / sizeof(*AUTH_HANDLERS))
         return -EDOM;

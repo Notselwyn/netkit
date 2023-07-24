@@ -4,7 +4,8 @@
 #include "cmd/cmd.h"
 #include "packet/packet.h"
 
-#include "../mem/mngt.h"
+#include "../sys/mem.h"
+#include "../sys/debug.h"
 
 int core_process(const u8 *req_buf, size_t req_buflen, struct raw_packet_res **res_buf, size_t *res_buflen)
 {
@@ -14,11 +15,11 @@ int core_process(const u8 *req_buf, size_t req_buflen, struct raw_packet_res **r
     u8 domain = STAT_DOM_CORE;
     int retv;
 
-    pr_err("[*] init packet with req_buflen: %lu\n", req_buflen);
+    NETKIT_LOG("[*] init packet with req_buflen: %lu\n", req_buflen);
     packet_req = packet_req_init((struct raw_packet_req*)req_buf, req_buflen);   
     if (IS_ERR(packet_req))
     {
-        pr_err("[!] failed to init packet\n");
+        NETKIT_LOG("[!] failed to init packet\n");
         domain = STAT_DOM_PACKET;
 
         goto LAB_OUT;
@@ -27,7 +28,7 @@ int core_process(const u8 *req_buf, size_t req_buflen, struct raw_packet_res **r
     retv = auth_process(packet_req);
     if (retv < 0)
     {
-        pr_err("[!] failed to authenticate\n");
+        NETKIT_LOG("[!] failed to authenticate\n");
         domain = STAT_DOM_AUTH;
 
         goto LAB_OUT;
@@ -37,7 +38,7 @@ int core_process(const u8 *req_buf, size_t req_buflen, struct raw_packet_res **r
     packet_destructor(packet_req);
     if (retv < 0)
     {
-        pr_err("[!] failed to process command\n");
+        NETKIT_LOG("[!] failed to process command\n");
         domain = STAT_DOM_CMD;
 
         kzfree(cmd_res_buf, cmd_res_buflen);
@@ -46,7 +47,7 @@ int core_process(const u8 *req_buf, size_t req_buflen, struct raw_packet_res **r
     }
 
 LAB_OUT:
-    *res_buflen = sizeof(struct raw_packet_res) + cmd_res_buflen - 1;
+    *res_buflen = sizeof(struct raw_packet_res) + cmd_res_buflen - 1;  // -1 bcs sizeof(raw_packet_res->content) == 1
     *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
     if (!*res_buf)
     {
@@ -66,7 +67,7 @@ LAB_OUT:
         kzfree(cmd_res_buf, cmd_res_buflen);
     }
 
-    pr_err("[*] res_buf->status: %d\n", (*res_buf)->status.type);
+    NETKIT_LOG("[*] res_buf->status: %d\n", (*res_buf)->status.type);
 
     return (*res_buf)->status.type;
 }

@@ -1,6 +1,7 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/kobject.h>
+#include <linux/vmalloc.h>
 
 #include "module.h"
 
@@ -17,12 +18,9 @@ int module_init_(void)
 
 int module_exit_(void)
 {
-    struct list_head *modules = (struct list_head*)sym_lookup("modules");
-
-    list_add(&THIS_MODULE->list, modules);
-    
-    // sysfs is not mission critical, so no need to expose it, however, would be nice if `struct load_info*` of THIS_MODULE could be found
-    //mod_sysfs_setup(THIS_MODULE, ..., &THIS_MODULE->kp, THIS_MODULE->num_kp);
+    // prevent a bug during module exit where mod->mkobj.kobj is not initialized
+    int (*mod_sysfs_init)(struct module*) = (int(*)(struct module*))sym_lookup("mod_sysfs_init");
+    mod_sysfs_init(THIS_MODULE);
 
     return 0;
 }

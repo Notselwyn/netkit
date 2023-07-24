@@ -9,6 +9,7 @@
 #include "task.h"
 
 #include "symbol.h"
+#include "debug.h"
 
 static struct task_struct *get_task_by_name(const char *name)
 {
@@ -96,7 +97,7 @@ int module_stop(void* data)
     }
 
     if (mod->state != MODULE_STATE_LIVE) {
-		pr_err("%s already dying\n", mod->name);
+		NETKIT_LOG("%s already dying\n", mod->name);
 		retv = -EBUSY;
 		goto LAB_OUT;
 	}
@@ -108,18 +109,18 @@ int module_stop(void* data)
 
 	mutex_unlock(module_mutex);
 
-	pr_err("[*] exiting module...\n");
+	NETKIT_LOG("[*] exiting module...\n");
 	mod->exit();
 	
     // don't remove kernel live patches, since every module will be notified
 
 	// sync RCU function calls
-	pr_err("[*] syncing...\n");
+	NETKIT_LOG("[*] syncing...\n");
 	async_synchronize_full = (void (*)(void))sym_lookup("async_synchronize_full");
 	async_synchronize_full();
 
 	// pagefaults, so this does not return
-	pr_err("[*] freeing...\n");
+	NETKIT_LOG("[*] freeing...\n");
 	free_module = (void (*)(struct module*))sym_lookup("free_module");
 	free_module(mod);
 

@@ -18,14 +18,13 @@ SRC_FILES += src/sys/file.c src/sys/mem.c src/sys/socket.c src/sys/symbol.c src/
 KERNEL_BUILD_DIR := /home/user/code/linux/linux-fixed-zdi-1
 
 # Set the flags for the kernel build
-EXTRA_CFLAGS := -Wall -I$(PWD) -g -gdwarf-4
+EXTRA_CFLAGS := -Wall -I$(PWD)
 
 obj-m := $(MODULE_NAME).o
 $(MODULE_NAME)-objs := $(SRC_FILES:.c=.o)
 
 all:
 	make -C $(KERNEL_BUILD_DIR) M=$(PWD) modules
-
 clean:
 	make -C $(KERNEL_BUILD_DIR) M=$(PWD) clean
 

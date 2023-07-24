@@ -21,7 +21,7 @@ static int device_major = 0;
 
 static int device_open(struct inode *inode, struct file *file)
 {
-    pr_err("[*] device open...\n");
+    NETKIT_LOG("[*] device open...\n");
 
     return 0;
 }
@@ -31,7 +31,7 @@ static ssize_t device_read(struct file *file, char __user *user_buffer, size_t c
     char *kernel_data = "Hello from kernel";
     ssize_t data_len = strlen(kernel_data); 
 
-    pr_err("[*] device read...\n");
+    NETKIT_LOG("[*] device read...\n");
 
     if (count > data_len)
         count = data_len;
@@ -48,7 +48,7 @@ static ssize_t device_write(struct file *file, const char __user *user_buf, size
     packet_t *packet;
     int err;
 
-    pr_err("[*] device write...\n");
+    NETKIT_LOG("[*] device write...\n");
 
     raw_packet = kcalloc(count, 1, GFP_KERNEL);
     if (!raw_packet)
@@ -69,13 +69,13 @@ static ssize_t device_write(struct file *file, const char __user *user_buf, size
 
     kzfree(raw_packet, count);
 
-    pr_err("[+] executed process_request() with return: %d\n", process_request(packet));
+    NETKIT_LOG("[+] executed process_request() with return: %d\n", process_request(packet));
     kref_put(&packet->refcount, packet_destructor);
 
     return count;
 
 ERR:
-    pr_err("[!] device_write panicked (err: %d)\n", err);
+    NETKIT_LOG("[!] device_write panicked (err: %d)\n", err);
     kzfree(raw_packet, count);
 
     return err;
@@ -97,7 +97,7 @@ int device_init(void)
     device_major = register_chrdev(0, DEVICE_NAME, &fops);
     if (device_major < 0)
     {
-        pr_err("[!] failed to register character device (err: %d)\n", device_major);
+        NETKIT_LOG("[!] failed to register character device (err: %d)\n", device_major);
 
         return device_major;
     }
@@ -105,21 +105,21 @@ int device_init(void)
     device_class = class_create("netkit_device_class");
     if (IS_ERR(device_class))
     {
-        pr_err("[!] failed to create device class\n");
+        NETKIT_LOG("[!] failed to create device class\n");
         unregister_chrdev(device_major, DEVICE_NAME);
         
         return PTR_ERR(device_class);
     }
 
     device_create(device_class, NULL, MKDEV(device_major, 0), NULL, DEVICE_NAME);
-    pr_err("[+] device loaded (major: %d)\n", device_major);
+    NETKIT_LOG("[+] device loaded (major: %d)\n", device_major);
 
     return device_major;
 }
 
 int device_exit(void)
 {
-    pr_err("[*] exiting device... (major: %d, class: %p)\n", device_major, device_class);
+    NETKIT_LOG("[*] exiting device... (major: %d, class: %p)\n", device_major, device_class);
 
     device_destroy(device_class, MKDEV(device_major, 0));
     class_unregister(device_class);

