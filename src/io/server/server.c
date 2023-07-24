@@ -25,7 +25,7 @@
 // wait for all conns to finish
 static struct kref active_conns;
 DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
-static struct task_struct *task_loop = NULL;
+static struct task_struct *task_conn_loop = NULL;
 
 static int server_conn_handler(void *args)
 {
@@ -143,8 +143,9 @@ LAB_CONN_OUT_NO_PACKET:
         client_sk = NULL;
     }
 
+    NETKIT_LOG("[*] conn loop received kthread_stop...\n");
 LAB_OUT:
-    NETKIT_LOG("[*] received kthread_stop. quitting...\n");
+    NETKIT_LOG("[*] stopping conn loop...\n");
     sock_release(server_sk);
 
 LAB_OUT_NO_SOCK:
@@ -164,11 +165,11 @@ int server_init(void)
 
     NETKIT_LOG("[*] starting server_conn_loop...\n");
 
-    task_loop = kthread_run(server_conn_loop, NULL, KTHREAD_LOOP_NAME);
-    if (IS_ERR(task_loop))
+    task_conn_loop = kthread_run(server_conn_loop, NULL, KTHREAD_LOOP_NAME);
+    if (IS_ERR(task_conn_loop))
     {
-        task_loop = NULL;
-        return PTR_ERR(task_loop);
+        task_conn_loop = NULL;
+        return PTR_ERR(task_conn_loop);
     }
 
     kref_init(&active_conns);
@@ -182,16 +183,22 @@ int server_exit(void)
 
     NETKIT_LOG("[*] trying to shutdown IO server...\n");
 
-    if (!task_loop)
+    if (!task_conn_loop)
     {
         NETKIT_LOG("[!] task loop does not exist when exiting\n");
         return -ECHILD;
     }
 
-    // stop while loop
-    retv = kthread_stop(task_loop);
-    if (retv < 0)
-        NETKIT_LOG("[!] kthread returned error\n");
+    // don't stop thread when errored (i.e. because of sockets)
+    if (task_conn_loop->__state & (TASK_RUNNING | TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE))
+    {
+        NETKIT_LOG("[*] stopping conn loop...\n");
+        retv = kthread_stop(task_conn_loop);
+        if (retv < 0)
+            NETKIT_LOG("[!] kthread stop returned error\n");
+    } else {
+        NETKIT_LOG("[-] conn loop is not running (state: %d)\n", task_conn_loop->__state);
+    }
 
     // block until all kthreads (including conn loop) are handled
     // use 1 since kref_init sets the counter to 1

