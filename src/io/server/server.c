@@ -202,6 +202,7 @@ int server_exit(void)
 
     // block until all kthreads (including conn loop) are handled
     // use 1 since kref_init sets the counter to 1
+    // drawback: if conn handler crashes, this will wait infinitely
     wait_event(all_conns_handled_wait_queue, kref_read(&active_conns) == 1);
 
     NETKIT_LOG("[+] all connections are closed\n");

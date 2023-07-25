@@ -1,7 +1,6 @@
 # Netkit
 
 TODO:
-- Fix proxy
 - Implement recipes
 - Implement AES-256-CBC layer
 - Implement TLS layer

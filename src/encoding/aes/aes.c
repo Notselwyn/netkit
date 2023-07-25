@@ -3,22 +3,11 @@
 
 #include "aes.h"
 
-static int enc_aes_do(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
-{
-    *res_buflen = req_buflen;
-    *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
+#include "../../sys/crypto.h"
+#include "../../sys/debug.h"
+#include "../../sys/mem.h"
 
-    NETKIT_LOG("[*] doing aes...\n");
-    if (IS_ERR(*res_buf))
-    {
-        *res_buf = NULL;
-        *res_buflen = 0;
-
-        return PTR_ERR(*res_buf);
-    }
-
-    // TODO: do AES256
-}
+#define AES_KEY "AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD"
 
 int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
@@ -29,12 +18,12 @@ int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
     int retv;
 
     NETKIT_LOG("[*] processing aes (req_buflen: %lx)...\n", req_buflen);
-    retv = enc_aes_do(req_buf, req_buflen, &next_req_buf, &next_req_buflen);
+    // TODO: implement aes256cbc_decrypt
+    retv = aes256cbc_encrypt(AES_KEY, 32, req_buf, req_buflen, &next_req_buf, &next_req_buflen);
     if (retv < 0)
     {
         NETKIT_LOG("[!] aes 1 failed\n");
- 
-        return retv;
+        goto LAB_OUT;
     }
 
     NETKIT_LOG("[*] executing next func...\n");
@@ -51,17 +40,18 @@ int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
     // execute encode() even if next->func() errors to wrap it in a response
     if (next_res_buf)
     {
-        enc_aes_do(next_res_buf, next_res_buflen, res_buf, res_buflen);
+        retv = aes256cbc_encrypt(AES_KEY, 32, next_res_buf, next_res_buflen, res_buf, res_buflen);
+        if (retv < 0)
+        {
+            NETKIT_LOG("[!] aes 2 failed\n");
+            goto LAB_OUT;
+        }
+
         kzfree(next_res_buf, next_res_buflen);
         next_res_buf = NULL;
         next_res_buflen = 0;
     }
 
-    if (retv < 0)
-    {
-        NETKIT_LOG("[!] aes 2 failed\n");
-        return retv;
-    }
-
+LAB_OUT:
     return 0;
 }

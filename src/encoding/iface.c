@@ -4,6 +4,7 @@
 #include "iface.h"
 
 #include "xor/xor.h"
+#include "aes/aes.h"
 
 #include "../core/iface.h"
 #include "../sys/mem.h"
@@ -20,6 +21,7 @@ static int enc_last_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 *
 
 
 const int (*ENC_FUNCTIONS[])(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
+    enc_aes_process,
     enc_xor_process,
     enc_last_process
 };
