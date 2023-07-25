@@ -93,7 +93,7 @@ static int server_conn_loop(void* args)
         if (unlikely(try_to_freeze()))
 			continue;
 
-        // use non-blocking socket to be able to respond to kthread_should_stop()
+        // use non-blocking socket to be able to respond to kthread_should_stop() and properly clean sockets
         conn_retv = kernel_accept(server_sk, &client_sk, SOCK_NONBLOCK);
         if (likely(conn_retv == -EAGAIN))
         {

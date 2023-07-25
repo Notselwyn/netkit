@@ -18,6 +18,7 @@ static int netkit_main(void* args)
 
 #if CONFIG_NETKIT_STEALTH
     NETKIT_LOG("[*] waiting for module to be ready...\n");
+
     // poll every 100ms
     wait_event_interruptible_timeout(mod_state_wait_queue, THIS_MODULE->state == MODULE_STATE_LIVE, HZ / 10);
 

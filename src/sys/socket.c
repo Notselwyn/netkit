@@ -20,30 +20,30 @@ __be32 inet_addr(const char *str)
     return *(__be32*)buf;
 } 
 
-int socket_create(__be32 ip, short port_htons, struct socket **sk_out, struct sockaddr_in **addr_out)
+int socket_create(__be32 ip, __be16 port, struct socket **out_sk, struct sockaddr_in **out_addr)
 {
     int err = 0;
 
-	err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, sk_out);
+	err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, out_sk);
     if (err != 0) {
         NETKIT_LOG("[!] failed to create socket: %d\n", err);
         return err;
     }
 
-    *addr_out = kzmalloc(sizeof(**addr_out), GFP_KERNEL);
-    if (IS_ERR(*addr_out))
+    *out_addr = kzmalloc(sizeof(**out_addr), GFP_KERNEL);
+    if (IS_ERR(*out_addr))
     {
-        sock_release(*sk_out);
-        *sk_out = NULL;
-        err = PTR_ERR(*addr_out);
-        *addr_out = NULL;
+        sock_release(*out_sk);
+        *out_sk = NULL;
+        err = PTR_ERR(*out_addr);
+        *out_addr = NULL;
 
         return err;
     }
 
-    (*addr_out)->sin_family = AF_INET;
-    (*addr_out)->sin_addr.s_addr = ip;
-    (*addr_out)->sin_port = port_htons;
+    (*out_addr)->sin_family = AF_INET;
+    (*out_addr)->sin_addr.s_addr = ip;
+    (*out_addr)->sin_port = port;
 
     return 0;
 }
@@ -76,12 +76,12 @@ LAB_OUT:
     return retv;
 }
 
-int socket_read(struct socket *sk, u8 **res_buf, size_t *res_buflen)
+int socket_read(struct socket *sk, u8 **out_buf, size_t *out_buflen)
 {
 	struct msghdr msg;
 	struct kvec vec;
     size_t count;
-    u8 *tmp_buf = NULL;
+    u8 *tmp_buf;
     const size_t TMP_BUFLEN = 4096;
     int retv; 
 
@@ -89,12 +89,11 @@ int socket_read(struct socket *sk, u8 **res_buf, size_t *res_buflen)
     if (IS_ERR(tmp_buf))
         return PTR_ERR(tmp_buf);
 
-    NETKIT_LOG("[*] tmp_buflen: %lu\n", TMP_BUFLEN);
-
     memset(&msg, '\x00', sizeof(msg));
     vec.iov_base = tmp_buf;
     vec.iov_len = TMP_BUFLEN;
 
+    NETKIT_LOG("[*] reading from socket...\n");
     count = kernel_recvmsg(sk, &msg, &vec, 1, TMP_BUFLEN, 0);
     NETKIT_LOG("[*] read %lu bytes\n", count);
     if (count < 0)
@@ -103,18 +102,18 @@ int socket_read(struct socket *sk, u8 **res_buf, size_t *res_buflen)
         goto LAB_ERR;
     }
 
-    *res_buf = kzmalloc(count, GFP_KERNEL);
-    if (IS_ERR(*res_buf))
+    *out_buf = kzmalloc(count, GFP_KERNEL);
+    if (IS_ERR(*out_buf))
     {
-        *res_buf = NULL;
-        retv = PTR_ERR(*res_buf);
+        *out_buf = NULL;
+        retv = PTR_ERR(*out_buf);
         goto LAB_ERR;
     }
 
-    *res_buflen = count;
+    *out_buflen = count;
 
     // count <= tmp_buflen always
-    memcpy(*res_buf, tmp_buf, *res_buflen);
+    memcpy(*out_buf, tmp_buf, *out_buflen);
 
 LAB_ERR:
     kzfree(tmp_buf, TMP_BUFLEN);
@@ -122,21 +121,50 @@ LAB_ERR:
     return retv;
 }
 
-int socket_write(struct socket *sk, u8 *req_buf, size_t req_buflen)
+int socket_write(struct socket *sk, u8 *content, size_t content_len)
 {
 	struct msghdr msg;
 	struct kvec vec = {
-        .iov_base = req_buf,
-        .iov_len = req_buflen
+        .iov_base = content,
+        .iov_len = content_len
     };
     int count;
 
     memset(&msg, '\x00', sizeof(msg));
 
-    count = kernel_sendmsg(sk, &msg, &vec, 1, req_buflen);
+    count = kernel_sendmsg(sk, &msg, &vec, 1, content_len);
     if (count < 0) {
         NETKIT_LOG("[!] sock_recvmsg() failed (err: %d)\n", count);
     }
 
     return count;
+}
+
+int socket_proxy(__be32 ip, __be16 port, u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
+{
+    static struct socket *sock;
+    struct sockaddr_in *addr;
+    int retv = 0;
+
+    retv = socket_create(ip, port, &sock, &addr);
+    if (retv < 0)
+        goto LAB_OUT_NO_SOCK;
+    
+    retv = socket_connect(sock, addr);
+    if (retv < 0)
+        goto LAB_OUT;
+    
+    retv = socket_write(sock, in_buf, in_buflen);
+    if (retv < 0)
+        goto LAB_OUT;
+
+    retv = socket_read(sock, out_buf, out_buflen);
+    if (retv < 0)
+        goto LAB_OUT;
+
+LAB_OUT:
+    sock_release(sock);
+    kzfree(addr, sizeof(*addr));
+LAB_OUT_NO_SOCK:
+    return retv;
 }
