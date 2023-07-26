@@ -7,7 +7,18 @@
 #include "mem.h"
 #include "debug.h"
 
-int xor_crypt(u8 key, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static void do_xor_inplace(size_t len, const u8 *in_buf_1, const u8 *in_buf_2, u8 *out_buf)
+{
+    size_t extra_len = len % 8;
+    
+    for (size_t i = 0; i < len - extra_len; i += 8)
+        *(long*)&(out_buf[i]) = *(long*)&(in_buf_1[i]) ^ *(long*)&(in_buf_2[i]);
+
+    for (size_t i = len - extra_len; i < len; i++)
+        out_buf[i] = in_buf_1[i] ^ in_buf_2[i];
+}
+
+int xor_crypt(const u8 *req_buf_1, const u8 *req_buf_2, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     *res_buflen = req_buflen;
     *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
@@ -20,16 +31,16 @@ int xor_crypt(u8 key, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t
         return PTR_ERR(*res_buf);
     }
 
-    // Handle the remaining bytes (if any) using scalar XOR
-    for (size_t i = 0; i < req_buflen; i++)
-        (*res_buf)[i] = req_buf[i] ^ key;
+    do_xor_inplace(req_buflen, req_buf_1, req_buf_2, *res_buf);
 
     return 0;
 }
 
 static int pkcs_encode(size_t blocksize, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
 {
-    const size_t padding_len = blocksize - (in_buflen % blocksize);
+    size_t padding_len = blocksize - (in_buflen % blocksize);
+    if (padding_len == blocksize)
+        padding_len = 0;
 
     *out_buflen = in_buflen + padding_len;
     *out_buf = kzmalloc(*out_buflen, GFP_KERNEL);
@@ -63,9 +74,9 @@ static int get_random_bytes_safe(u8 *bytes, size_t size)
 static int do_aes_cbc_encrypt(size_t block_size, const u8 *key, size_t keylen, const u8 *iv, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
 {
 	struct crypto_aes_ctx ctx;
-    long *intmed_val;
-    long pt_val;
-    long prev_block_val;
+    //long *intmed_val;
+    //long pt_val;
+    //long prev_block_val;
     int retv;
 
     // require multiple of 8 for optimization (this function assumes sizeof(long) == 8)
@@ -88,17 +99,10 @@ static int do_aes_cbc_encrypt(size_t block_size, const u8 *key, size_t keylen, c
     // skip IV
     for (size_t block_index = 0; block_index < in_buflen; block_index += block_size) {
         // xor prev ct block (or IV) with pt block to get intermediate value to encrypt
-        for (size_t j = 0; j < block_size; j += 8) {
-            intmed_val = (long*)&((*out_buf)[block_index + j]);
-            pt_val = *(long*)&(in_buf[block_index + j]);
-
-            if (block_index > 0)
-                prev_block_val = *(long*)&((*out_buf)[block_index + j - block_size]);
-            else
-                prev_block_val = *(long*)&(iv[j]);
-
-            *intmed_val = pt_val ^ prev_block_val;
-        }
+        if (block_index > 0)
+            do_xor_inplace(block_size, &(*out_buf)[block_index - block_size], &in_buf[block_index], &(*out_buf)[block_index]);
+        else
+            do_xor_inplace(block_size, iv, &in_buf[block_index], &(*out_buf)[block_index]);
 
         aes_encrypt(&ctx, &(*out_buf)[block_index], &(*out_buf)[block_index]);
     }
