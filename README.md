@@ -1,8 +1,10 @@
 # Netkit
 
 TODO:
+- Fix AES-256-CBC layer
+- Implement PCR allocate command
+- Implement ko hotswap
 - Implement recipes
-- Implement AES-256-CBC layer
 - Implement TLS layer
 - Netfilter hook
 - Fix exit cmd (BUG on free_module)
