@@ -63,7 +63,7 @@ static int server_conn_loop(void* args)
     struct socket *server_sk;
     struct sockaddr_in *server_addr;
     struct socket *client_sk;
-    struct server_conn *packet;
+    struct server_conn *conn_data;
     int conn_retv;
     int retv;
 
@@ -99,28 +99,31 @@ static int server_conn_loop(void* args)
 
         NETKIT_LOG("[+] received connection\n");
 
-        packet = kzmalloc(sizeof(*packet), GFP_KERNEL);
-        if (IS_ERR(packet))
-            goto LAB_CONN_ERR_NO_PACKET;
+        // populate conn_data instance
+        conn_data = kzmalloc(sizeof(*conn_data), GFP_KERNEL);
+        if (IS_ERR(conn_data))
+            goto LAB_CONN_ERR_NO_CONN;
 
-        packet->client_sk = client_sk;
-        retv = socket_read(packet->client_sk, &packet->req_buf, &packet->req_buflen);
+        // try to read conn_data content
+        conn_data->client_sk = client_sk;
+        retv = socket_read(conn_data->client_sk, &conn_data->req_buf, &conn_data->req_buflen);
         if (retv < 0)
             goto LAB_CONN_ERR;
 
-        if (packet->req_buflen == 0)
+        if (conn_data->req_buflen == 0)
         {
             NETKIT_LOG("[!] got 0 bytes from connection. giving no reply\n");
             goto LAB_CONN_ERR;
         }
 
+        // start kthread
         kthread_name_id = (int)get_random_long();
         sscanf(kthread_name, "netkit-conn-handler-%08x", &kthread_name_id);
 
         NETKIT_LOG("[*] starting conn handler...\n");
 
-        // child should free packet
-        conn_task = kthread_run(server_conn_handler, packet, kthread_name);
+        // child should free conn_data
+        conn_task = kthread_run(server_conn_handler, conn_data, kthread_name);
         if (IS_ERR(conn_task))
             goto LAB_CONN_ERR;
 
@@ -129,12 +132,12 @@ LAB_CONN_REITER:
         continue;
 
 LAB_CONN_ERR:
-        if (packet->req_buf)
-            kzfree(packet->req_buf, packet->req_buflen);
+        if (conn_data->req_buf)
+            kzfree(conn_data->req_buf, conn_data->req_buflen);
 
-        kzfree(packet, sizeof(*packet));
-        packet = NULL;
-LAB_CONN_ERR_NO_PACKET:
+        kzfree(conn_data, sizeof(*conn_data));
+        conn_data = NULL;
+LAB_CONN_ERR_NO_CONN:
         sock_release(client_sk);
         client_sk = NULL;
         goto LAB_CONN_REITER;
