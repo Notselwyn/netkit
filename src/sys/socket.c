@@ -48,7 +48,7 @@ int socket_create(__be32 ip, __be16 port, struct socket **out_sk, struct sockadd
     return 0;
 }
 
-int socket_connect(struct socket *sk, struct sockaddr_in *addr)
+__inline int socket_connect(struct socket *sk, struct sockaddr_in *addr)
 {
     return kernel_connect(sk, (struct sockaddr*)addr, sizeof(*addr), 0);
 }
@@ -93,9 +93,8 @@ int socket_read(struct socket *sk, u8 **out_buf, size_t *out_buflen)
     vec.iov_base = tmp_buf;
     vec.iov_len = TMP_BUFLEN;
 
-    NETKIT_LOG("[*] reading from socket...\n");
     count = kernel_recvmsg(sk, &msg, &vec, 1, TMP_BUFLEN, 0);
-    NETKIT_LOG("[*] read %lu bytes\n", count);
+    NETKIT_LOG("[*] read %lu bytes from socket\n", count);
     if (count < 0)
     {
         retv = count;
@@ -133,9 +132,7 @@ int socket_write(struct socket *sk, u8 *content, size_t content_len)
     memset(&msg, '\x00', sizeof(msg));
 
     count = kernel_sendmsg(sk, &msg, &vec, 1, content_len);
-    if (count < 0) {
-        NETKIT_LOG("[!] sock_recvmsg() failed (err: %d)\n", count);
-    }
+    NETKIT_LOG("[+] wrote %u bytes to socket\n", count);
 
     return count;
 }

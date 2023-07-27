@@ -29,7 +29,7 @@ static struct task_struct *task_conn_loop = NULL;
 
 static int server_conn_handler(void *args)
 {
-    server_packet_t *packet = (server_packet_t*)args;
+    struct server_conn *packet = (struct server_conn*)args;
     u8* res_buf = NULL;
     size_t res_buflen = 0;
     int retv;
@@ -38,7 +38,6 @@ static int server_conn_handler(void *args)
 
     NETKIT_LOG("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
-    NETKIT_LOG("[*] sending response to client (res_buflen: %lu)...\n", res_buflen);
     retv = socket_write(packet->client_sk, res_buf, res_buflen);
     
     sock_release(packet->client_sk);
@@ -64,7 +63,7 @@ static int server_conn_loop(void* args)
     struct socket *server_sk;
     struct sockaddr_in *server_addr;
     struct socket *client_sk;
-    server_packet_t *packet;
+    struct server_conn *packet;
     int conn_retv;
     int retv;
 
@@ -105,8 +104,6 @@ static int server_conn_loop(void* args)
             continue;
 
         NETKIT_LOG("[+] received connection\n");
-        
-        NETKIT_LOG("[*] allocating packet...\n");
 
         packet = kzmalloc(sizeof(*packet), GFP_KERNEL);
         if (IS_ERR(packet))
@@ -120,10 +117,11 @@ static int server_conn_loop(void* args)
             goto LAB_CONN_OUT;
         }
 
-        NETKIT_LOG("[*] preparing conn handler...\n");
 
         kthread_name_id = (int)get_random_long();
         sscanf(kthread_name, "netkit-conn-handler-%08x", &kthread_name_id);
+
+        NETKIT_LOG("[*] starting conn handler...\n");
 
         // child should free packet
         conn_task = kthread_run(server_conn_handler, packet, kthread_name);

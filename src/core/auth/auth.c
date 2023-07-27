@@ -11,7 +11,7 @@
 #include "../packet/packet.h"
 #include "../../sys/debug.h"
 
-int auth_process(const packet_req_t *req_packet)
+int auth_process(const struct packet_req *req_packet)
 {
     const int (*AUTH_HANDLERS[])(const u8*, size_t) = {
         password_hash_match

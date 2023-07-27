@@ -15,7 +15,7 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
     char *tmp_buf;
     int retv = 0;
 
-    NETKIT_LOG("[*] going to open file\n");
+    NETKIT_LOG("[*] reading file '%s'...\n", filename);
     file = filp_open(filename, O_RDONLY | (force_o_largefile() ? O_LARGEFILE : 0), 0);
     if (IS_ERR(file))
     {
@@ -30,7 +30,6 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         goto LAB_OUT_NO_FILP;
     }
 
-    NETKIT_LOG("[*] reading file '%s'...\n", filename);
     retv = kernel_read(file, tmp_buf, 4096, NULL);
     if (retv < 0)
     {
@@ -53,7 +52,6 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
 
     while (retv == 4096)
     {
-        NETKIT_LOG("[*] reading more file (current size: %lu)...\n", *out_buflen);
         retv = kernel_read(file, tmp_buf, 4096, (loff_t *)out_buflen);
         if (retv < 0)
         {
@@ -61,7 +59,6 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
             goto LAB_OUT;
         }
     
-        NETKIT_LOG("[*] gonna realloc...\n");
         *out_buf = kzrealloc(*out_buf, *out_buflen, *out_buflen + retv);
         if (IS_ERR(*out_buf))
         {
@@ -77,7 +74,7 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         *out_buflen += retv;
     }
     
-    NETKIT_LOG("[*] reading more file (current size: %lu)...\n", *out_buflen);
+    NETKIT_LOG("[*] read %lu bytes...\n", *out_buflen);
 
 LAB_OUT:
     filp_close(file, NULL);

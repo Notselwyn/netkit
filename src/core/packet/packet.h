@@ -29,14 +29,14 @@ struct raw_packet_req
     u8 content[MAX_REQ_CONTENT_LEN];
 } __packed;
 
-typedef struct packet_req
+struct packet_req
 {
     u8 auth_id;
     u8 password[PASSWORD_LEN];
     u8 cmd_id;
     size_t content_len;
     u8 *content;
-} packet_req_t;
+} __randomize_layout;
 
 struct packet_status
 {
@@ -50,7 +50,7 @@ struct raw_packet_res
     u8 content[1];
 } __packed;
 
-void packet_destructor(packet_req_t *ref);
-packet_req_t *packet_req_init(const struct raw_packet_req *buffer, size_t count);
+void packet_destructor(struct packet_req *ref);
+struct packet_req *packet_req_init(const struct raw_packet_req *buffer, size_t count);
 
 #endif

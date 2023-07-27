@@ -9,7 +9,7 @@
 
 #define AES_KEY "AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD"
 
-int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+int enc_aes_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     u8* next_req_buf = NULL;
     size_t next_req_buflen = 0;
@@ -17,25 +17,19 @@ int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
     size_t next_res_buflen = 0;
     int retv;
 
-    NETKIT_LOG("[*] processing aes (req_buflen: %lx)...\n", req_buflen);
-    // TODO: implement aes256cbc_decrypt
     retv = aes256cbc_decrypt(AES_KEY, 32, req_buf, req_buflen, &next_req_buf, &next_req_buflen);
     if (retv < 0)
     {
         NETKIT_LOG("[!] aes 1 failed\n");
         goto LAB_OUT;
     }
-
-    NETKIT_LOG("[*] executing next func...\n");
     
-    CALL_NEXT_ENCODING(index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
+    call_next_encoding(index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
 
     // reset next_req_buf{len}
     kzfree(next_req_buf, next_req_buflen);
     next_req_buf = NULL;
     next_req_buflen = 0;
-
-    NETKIT_LOG("[*] executing aes...\n");
 
     // execute encode() even if next->func() errors to wrap it in a response
     if (next_res_buf)

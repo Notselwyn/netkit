@@ -10,21 +10,39 @@
 #include "../sys/mem.h"
 #include "../sys/debug.h"
 
-/**
- * function to get rid of the `struct enc_list_entry*` argument for the list
- */
-static int enc_last_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static int enc_last_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    NETKIT_LOG("[*] doing core process...\n");
     return core_process(req_buf, req_buflen, res_buf, res_buflen);
 }
 
+int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+{
+    const int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
+        enc_aes_process,
+        enc_xor_process,
+        enc_last_process
+    };
 
-const int (*ENC_FUNCTIONS[])(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
-    enc_aes_process,
-    enc_xor_process,
-    enc_last_process
-};
+    char *sym_name;
+    int retv;
+
+    // for some reason symbol names are this big???
+    sym_name = kzmalloc(1024, GFP_KERNEL);
+    if (IS_ERR(sym_name))
+        return PTR_ERR(sym_name);
+
+    retv = sprint_symbol(sym_name, (unsigned long)ENC_FUNCTIONS[index]);
+    if (retv < 0)
+        return retv;
+
+    NETKIT_LOG("[*] calling '%s' (req_buflen: %lu)\n", sym_name, req_buflen);
+    retv = ENC_FUNCTIONS[index](index, req_buf, req_buflen, res_buf, res_buflen);
+    NETKIT_LOG("[+] returned '%s' (res_buflen: %lu)\n", sym_name, *res_buflen);
+
+    kzfree(sym_name, 1024);
+
+    return retv;
+}
 
 /**
  * heap guide (req):
@@ -37,9 +55,7 @@ const int (*ENC_FUNCTIONS[])(u8 index, const u8 *req_buf, size_t req_buflen, u8 
  */
 int enc_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    CALL_NEXT_ENCODING(0, req_buf, req_buflen, res_buf, res_buflen);
-
-    NETKIT_LOG("[+] successfully returned from first_entry->func\n");
+    call_next_encoding(0, req_buf, req_buflen, res_buf, res_buflen);
 
     return 0;
 }

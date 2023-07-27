@@ -11,14 +11,14 @@ static void do_xor_inplace(size_t len, const u8 *in_buf_1, const u8 *in_buf_2, u
 {
     size_t extra_len = len % 8;
     
-    for (size_t i = 0; i < len - extra_len; i += 8)
+    for (size_t i = 0; likely(i < len - extra_len); i += 8)
         *(long*)&(out_buf[i]) = *(long*)&(in_buf_1[i]) ^ *(long*)&(in_buf_2[i]);
 
-    for (size_t i = len - extra_len; i < len; i++)
+    for (size_t i = len - extra_len; likely(i < len); i++)
         out_buf[i] = in_buf_1[i] ^ in_buf_2[i];
 }
 
-int xor_crypt(const u8 *req_buf_1, const u8 *req_buf_2, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+int xor_crypt(size_t req_buflen, const u8 *req_buf_1, const u8 *req_buf_2, u8 **res_buf, size_t *res_buflen)
 {
     *res_buflen = req_buflen;
     *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
@@ -156,7 +156,7 @@ static int do_aes_cbc_decrypt(size_t block_size, const u8 *key, size_t keylen, c
     int retv;
 
     // require multiple of 8 for optimization (this function assumes sizeof(long) == 8)
-    if (block_size % 8 != 0)
+    if (block_size % 8 != 0 || in_buflen % block_size != 0)
 		return -EINVAL; 
 
 	retv = aes_expandkey(&ctx, key, keylen);
@@ -182,7 +182,6 @@ static int do_aes_cbc_decrypt(size_t block_size, const u8 *key, size_t keylen, c
             do_xor_inplace(block_size, &in_buf[block_index - block_size], &(*out_buf)[block_index], &(*out_buf)[block_index]);
         else
             do_xor_inplace(block_size, iv, &(*out_buf)[block_index], &(*out_buf)[block_index]);
-
     }
 
     return 0;
@@ -208,15 +207,10 @@ int aes256cbc_encrypt(const u8 *key, size_t keylen, const u8 *in_buf, size_t in_
     if (retv < 0)
         goto LAB_OUT_NO_PAD;
 
-    NETKIT_LOG("[*] iv: 0x%lx%lx\n", ((long*)iv)[0], ((long*)iv)[1]);
-
-    // ++++ pkcs works
-	NETKIT_LOG("[*] applying pkcs#7...\n");
     retv = pkcs_encode(AES_BLOCK_SIZE, in_buf, in_buflen, &buf_padded, &buf_padded_len);
 	if (retv < 0)
 		goto LAB_OUT_NO_PAD;
-    
-	NETKIT_LOG("[*] doing cbc encrypt (in_buflen: %lu)...\n", buf_padded_len);
+
     retv = do_aes_cbc_encrypt(AES_BLOCK_SIZE, key, AES_KEYSIZE_256, iv, buf_padded, buf_padded_len, &buf_encrypted, &buf_encrypted_len);
     if (retv < 0)
         goto LAB_OUT_NO_ENCRYPT;
@@ -258,42 +252,14 @@ int aes256cbc_decrypt(const u8 *key, size_t keylen, const u8 *in_buf, size_t in_
     }
 
     memcpy(iv, in_buf, AES_BLOCK_SIZE);
-    NETKIT_LOG("[*] iv: 0x%lx%lx\n", ((long*)iv)[0], ((long*)iv)[1]);
 
-    /*buf_ivless_len = ;
-    buf_ivless = kzmalloc(buf_ivless_len, GFP_KERNEL);
-    if (IS_ERR(buf_ivless))
-    {
-        retv = PTR_ERR(buf_ivless);
-        goto LAB_OUT_NO_IVLESS;
-    }
-
-    memcpy(buf_ivless, &in_buflen[AES_BLOCK_SIZE], buf_ivless_len);*/
-    
-	NETKIT_LOG("[*] doing cbc encrypt (in_buflen: %lu)...\n", in_buflen - AES_BLOCK_SIZE);
     retv = do_aes_cbc_decrypt(AES_BLOCK_SIZE, key, AES_KEYSIZE_256, iv, &in_buf[AES_BLOCK_SIZE], in_buflen - AES_BLOCK_SIZE, &buf_decrypted, &buf_decrypted_len);
     if (retv < 0)
         goto LAB_OUT_NO_DECRYPT;
 
-    // ++++ pkcs works
-	NETKIT_LOG("[*] applying pkcs#7...\n");
     retv = pkcs_decode(AES_BLOCK_SIZE, buf_decrypted, buf_decrypted_len, out_buf, out_buflen);
 	if (retv < 0)
 		goto LAB_OUT;
-
-    /*out_buflen = AES_BLOCK_SIZE + buf_encrypted_len;
-    *out_buf = kzmalloc(*out_buflen, GFP_KERNEL);
-    if (IS_ERR(*out_buf))
-    {
-        retv = PTR_ERR(*out_buf);
-        *out_buf = NULL;
-        *out_buflen = 0;
-        goto LAB_OUT;
-    }
-
-    memcpy(*out_buf, iv, AES_BLOCK_SIZE);
-    memcpy(*out_buf + AES_BLOCK_SIZE, buf_encrypted, buf_encrypted_len);*/
-
 LAB_OUT:
     kzfree(buf_decrypted, buf_decrypted_len);
 LAB_OUT_NO_DECRYPT:

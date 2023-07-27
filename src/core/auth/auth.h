@@ -3,6 +3,6 @@
 
 #include "../packet/packet.h"
 
-int auth_process(const packet_req_t *packet);
+int auth_process(const struct packet_req *packet);
 
 #endif

@@ -8,10 +8,10 @@ int server_exit(void);
 
 #define MAX_SERVER_PACKET_SIZE 8096
 
-typedef struct server_packet {
+struct server_conn {
     struct socket *client_sk;
     u8 *req_buf;
     size_t req_buflen;
-} server_packet_t;
+} __randomize_layout;
 
 #endif
