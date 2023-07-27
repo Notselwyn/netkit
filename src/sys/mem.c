@@ -25,8 +25,11 @@ void *kzrealloc(void* buf_old, size_t size_old, size_t size_new)
 {
     void *buf_new;
 
-    if (!buf_old)
+    if (!buf_old || size_old > size_new)
         return ERR_PTR(-EINVAL);
+
+    if (size_old == size_new)
+        return buf_old;
 
     buf_new = kzmalloc(size_new, GFP_KERNEL);
     if (IS_ERR(buf_new))

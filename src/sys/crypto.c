@@ -36,10 +36,10 @@ int xor_crypt(const u8 *req_buf_1, const u8 *req_buf_2, size_t req_buflen, u8 **
     return 0;
 }
 
-static int pkcs_encode(size_t blocksize, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
+static int pkcs_encode(size_t block_size, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
 {
-    size_t padding_len = blocksize - (in_buflen % blocksize);
-    if (padding_len == blocksize)
+    size_t padding_len = block_size - (in_buflen % block_size);
+    if (padding_len == block_size)
         padding_len = 0;
 
     *out_buflen = in_buflen + padding_len;
@@ -56,6 +56,44 @@ static int pkcs_encode(size_t blocksize, const u8 *in_buf, size_t in_buflen, u8 
     return 0;
 }
 
+
+static int pkcs_decode(size_t block_size, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
+{
+    size_t padding_len;
+    
+    padding_len = in_buf[(ssize_t)in_buflen - 1];
+    if (padding_len >= block_size || padding_len == 0)
+    {
+        // padding is not valid, so there is no padding
+        padding_len = 0;
+        goto LAB_DECODE;
+    }
+
+    // check for 0x01, 0x0202, 0x030303, etc.
+    for (size_t i=0; i < padding_len; i++)
+    {
+        if (in_buf[in_buflen - i - 1] != padding_len)
+        {
+            // padding is not valid, so there is no padding
+            padding_len = 0;
+            goto LAB_DECODE;
+        }
+    }
+
+LAB_DECODE:
+    *out_buflen = in_buflen - padding_len;
+    *out_buf = kzmalloc(*out_buflen, GFP_KERNEL);
+    if (IS_ERR(*out_buf)) {
+        *out_buf = NULL;
+        *out_buflen = 0;
+        return PTR_ERR(*out_buf);
+    }
+
+    memcpy(*out_buf, in_buf, *out_buflen);
+
+    return 0;
+}
+
 static int get_random_bytes_safe(u8 *bytes, size_t size)
 {
 	if (wait_for_random_bytes() != 0)
@@ -67,16 +105,13 @@ static int get_random_bytes_safe(u8 *bytes, size_t size)
 }
 
 /**
- * Applies AES-blocklen-CBC
+ * Encrypts AES-blocklen-CBC
  * 
  * PKCS#5 or PKCS#7 Padding should be done in advance
  */
 static int do_aes_cbc_encrypt(size_t block_size, const u8 *key, size_t keylen, const u8 *iv, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
 {
 	struct crypto_aes_ctx ctx;
-    //long *intmed_val;
-    //long pt_val;
-    //long prev_block_val;
     int retv;
 
     // require multiple of 8 for optimization (this function assumes sizeof(long) == 8)
@@ -105,6 +140,49 @@ static int do_aes_cbc_encrypt(size_t block_size, const u8 *key, size_t keylen, c
             do_xor_inplace(block_size, iv, &in_buf[block_index], &(*out_buf)[block_index]);
 
         aes_encrypt(&ctx, &(*out_buf)[block_index], &(*out_buf)[block_index]);
+    }
+
+    return 0;
+}
+
+/**
+ * Decrypts AES-blocklen-CBC
+ * 
+ * PKCS#5 or PKCS#7 Padding should be done in advance
+ */
+static int do_aes_cbc_decrypt(size_t block_size, const u8 *key, size_t keylen, const u8 *iv, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
+{
+	struct crypto_aes_ctx ctx;
+    int retv;
+
+    // require multiple of 8 for optimization (this function assumes sizeof(long) == 8)
+    if (block_size % 8 != 0)
+		return -EINVAL; 
+
+	retv = aes_expandkey(&ctx, key, keylen);
+	if (retv < 0)
+		return retv;
+
+    *out_buflen = in_buflen;
+    *out_buf = kzmalloc(*out_buflen, GFP_KERNEL);
+    if (IS_ERR(*out_buf))
+    {
+        *out_buf = NULL;
+        *out_buflen = 0;
+        return PTR_ERR(*out_buf);
+    }
+
+    // skip IV
+    for (size_t block_index = 0; block_index < in_buflen; block_index += block_size) {
+        // decrypt ct (in) -> pt (out)
+        aes_decrypt(&ctx, &(*out_buf)[block_index], &in_buf[block_index]);
+
+        // xor prev ct block (or IV) with intermediate to get pt block
+        if (block_index > 0)
+            do_xor_inplace(block_size, &in_buf[block_index - block_size], &(*out_buf)[block_index], &(*out_buf)[block_index]);
+        else
+            do_xor_inplace(block_size, iv, &(*out_buf)[block_index], &(*out_buf)[block_index]);
+
     }
 
     return 0;
@@ -161,5 +239,63 @@ LAB_OUT:
 LAB_OUT_NO_ENCRYPT:
     kzfree(buf_padded, buf_padded_len);
 LAB_OUT_NO_PAD:
+    return retv;
+}
+
+int aes256cbc_decrypt(const u8 *key, size_t keylen, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
+{
+    u8 *buf_decrypted;
+    size_t buf_decrypted_len;
+    u8 iv[AES_BLOCK_SIZE];
+    int retv;
+
+    // add len parameters for security, since a developer may not know the proper size and cause memory bugs
+    // there need to be atleast 2 blocks: iv + content
+    if (keylen != AES_KEYSIZE_256 || in_buflen < AES_BLOCK_SIZE * 2)
+    {
+        retv = -EINVAL;
+        goto LAB_OUT_NO_DECRYPT;
+    }
+
+    memcpy(iv, in_buf, AES_BLOCK_SIZE);
+    NETKIT_LOG("[*] iv: 0x%lx%lx\n", ((long*)iv)[0], ((long*)iv)[1]);
+
+    /*buf_ivless_len = ;
+    buf_ivless = kzmalloc(buf_ivless_len, GFP_KERNEL);
+    if (IS_ERR(buf_ivless))
+    {
+        retv = PTR_ERR(buf_ivless);
+        goto LAB_OUT_NO_IVLESS;
+    }
+
+    memcpy(buf_ivless, &in_buflen[AES_BLOCK_SIZE], buf_ivless_len);*/
+    
+	NETKIT_LOG("[*] doing cbc encrypt (in_buflen: %lu)...\n", in_buflen - AES_BLOCK_SIZE);
+    retv = do_aes_cbc_decrypt(AES_BLOCK_SIZE, key, AES_KEYSIZE_256, iv, &in_buf[AES_BLOCK_SIZE], in_buflen - AES_BLOCK_SIZE, &buf_decrypted, &buf_decrypted_len);
+    if (retv < 0)
+        goto LAB_OUT_NO_DECRYPT;
+
+    // ++++ pkcs works
+	NETKIT_LOG("[*] applying pkcs#7...\n");
+    retv = pkcs_decode(AES_BLOCK_SIZE, buf_decrypted, buf_decrypted_len, out_buf, out_buflen);
+	if (retv < 0)
+		goto LAB_OUT;
+
+    /*out_buflen = AES_BLOCK_SIZE + buf_encrypted_len;
+    *out_buf = kzmalloc(*out_buflen, GFP_KERNEL);
+    if (IS_ERR(*out_buf))
+    {
+        retv = PTR_ERR(*out_buf);
+        *out_buf = NULL;
+        *out_buflen = 0;
+        goto LAB_OUT;
+    }
+
+    memcpy(*out_buf, iv, AES_BLOCK_SIZE);
+    memcpy(*out_buf + AES_BLOCK_SIZE, buf_encrypted, buf_encrypted_len);*/
+
+LAB_OUT:
+    kzfree(buf_decrypted, buf_decrypted_len);
+LAB_OUT_NO_DECRYPT:
     return retv;
 }

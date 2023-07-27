@@ -19,7 +19,7 @@ int enc_aes_process(u8 index, const u8 *req_buf, size_t req_buflen, u8 **res_buf
 
     NETKIT_LOG("[*] processing aes (req_buflen: %lx)...\n", req_buflen);
     // TODO: implement aes256cbc_decrypt
-    retv = aes256cbc_encrypt(AES_KEY, 32, req_buf, req_buflen, &next_req_buf, &next_req_buflen);
+    retv = aes256cbc_decrypt(AES_KEY, 32, req_buf, req_buflen, &next_req_buf, &next_req_buflen);
     if (retv < 0)
     {
         NETKIT_LOG("[!] aes 1 failed\n");
