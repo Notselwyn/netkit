@@ -10,11 +10,12 @@
 #include "../sys/mem.h"
 #include "../sys/debug.h"
 
-static int enc_last_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static __inline int enc_last_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     return core_process(req_buf, req_buflen, res_buf, res_buflen);
 }
 
+#if CONFIG_NETKIT_DEBUG
 int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     const int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
@@ -43,17 +44,20 @@ int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **
 
     return retv;
 }
+#else 
+__inline int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+{
+    const int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
+        enc_aes_process,
+        enc_xor_process,
+        enc_last_process
+    };
 
-/**
- * heap guide (req):
- *  - caller allocates
- *  - caller free's
- * 
- * heap guide (res):
- *  - callee allocates
- *  - caller free's
- */
-int enc_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+    return ENC_FUNCTIONS[index](index, req_buf, req_buflen, res_buf, res_buflen);
+}
+#endif
+
+int __inline enc_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     call_next_encoding(0, req_buf, req_buflen, res_buf, res_buflen);
 
