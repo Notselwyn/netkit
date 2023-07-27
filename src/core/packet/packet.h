@@ -11,10 +11,10 @@
 
 #define MAX_RES_CONTENT_LEN (PACKET_MAX_LEN - 8 - 1)
 
-#define STAT_DOM_CORE (2 << 0)
-#define STAT_DOM_AUTH (2 << 1)
-#define STAT_DOM_CMD (2 << 2)
-#define STAT_DOM_PACKET (2 << 3)
+#define STAT_DOM_CORE (1 << 0)
+#define STAT_DOM_AUTH (1 << 1)
+#define STAT_DOM_CMD (1 << 2)
+#define STAT_DOM_PACKET (1 << 3)
 
 int calc_status(int retv, int dom);
 

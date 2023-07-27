@@ -115,6 +115,8 @@ def exec(password: bytes, pwd: str, cmd: str):
     if rsp.retv == 0x7f00:
         print(f"command not found (something went wrong): {cmd.split(' ')[0]}")
         return
+    elif rsp.retv != 0:
+        print(f"retv: {rsp.retv}, domain: {rsp.domain}")
 
     print(rsp.content.decode())
 
@@ -127,7 +129,7 @@ def server_exit(password):
 
 
 def main():
-    password = b"password"
+    password = b"passwoard"
     pwd = os.path.abspath("/")
     while True:
         argv = input("$ ").lower().strip(" ").split(" ")
