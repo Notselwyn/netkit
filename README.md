@@ -15,6 +15,12 @@ make
 ls -la netkit.ko
 ```
 
+Once the rootkit is loaded into the system, a user may want to interact with it using the provided psuedo-shell:
+```bash
+cd netkit
+python3 client/shell.py
+```
+
 ### Testing it with notselwyn/kernel-scripts
 
 Since the rootkit was developed with the author's [kernel-scripts](https://github.com/notselwyn/kernel-scripts), it's a breeze to debug and test. Simply download the scripts and compile a compatible Linux kernel.
@@ -26,7 +32,7 @@ create-image.sh
 run.sh $KERNEL_PROJ_ROOT
 ```
 
-To run the rootkit (make sure it's in debug mode to allow for `rmmod` in `run_kmod.sh`):
+To run and interact with the rootkit (make sure it's in debug mode to allow for `rmmod` in `run_kmod.sh`):
 ```bash
 cd netkit
 run_kmod.sh netkit.ko netkit
