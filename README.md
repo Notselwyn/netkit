@@ -17,7 +17,7 @@ To run the rootkit, optionally tweak it in the configurations, build it using `m
 
 **==== Please make sure to adjust `CONFIG_NETKIT_DEBUG` to your liking ====**
 
-When `CONFIG_NETKIT_DEBUG` is enabled, the rootkit can only be stopped using the self destruct / exit cmd, and not using rmmod.
+If `CONFIG_NETKIT_DEBUG` is enabled, then stealth mode is enabled and the rootkit can only be stopped using the self destruct / exit cmd (not using rmmod).
 
 ```bash
 git clone https://github.com/notselwyn/netkit/
