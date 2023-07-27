@@ -14,6 +14,7 @@
 
 ### TODO
 - Make plans for how Netkit can be used, and if there will be a toolsuite
+- Implement segments for rapid IO
 - Implement PCR allocate command
 - Implement ko hotswap
 - Implement recipes

