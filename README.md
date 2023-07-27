@@ -17,7 +17,7 @@ ls -la netkit.ko
 
 ### Testing it with notselwyn/kernel-scripts
 
-Since the rootkit was developed with the author's (kernel-scripts)[https://github.com/notselwyn/kernel-scripts], it's a breeze to debug and test. Simply download the scripts and compile a compatible Linux kernel.
+Since the rootkit was developed with the author's [kernel-scripts](https://github.com/notselwyn/kernel-scripts), it's a breeze to debug and test. Simply download the scripts and compile a compatible Linux kernel.
 
 To run the kernel:
 ```bash
