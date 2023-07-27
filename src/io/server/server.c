@@ -94,35 +94,25 @@ static int server_conn_loop(void* args)
 
         // use non-blocking socket to be able to respond to kthread_should_stop() and properly clean sockets
         conn_retv = kernel_accept(server_sk, &client_sk, SOCK_NONBLOCK);
-        if (likely(conn_retv == -EAGAIN))
-        {
-            schedule_timeout_interruptible(HZ / 10);  // 100ms check rate
-            continue;
-        }
-        
-        if (conn_retv < 0)
-            continue;
+        if (likely(conn_retv == -EAGAIN) || conn_retv < 0)
+            goto LAB_CONN_REITER;
 
         NETKIT_LOG("[+] received connection\n");
 
         packet = kzmalloc(sizeof(*packet), GFP_KERNEL);
         if (IS_ERR(packet))
-            goto LAB_CONN_OUT_NO_PACKET;
+            goto LAB_CONN_ERR_NO_PACKET;
 
         packet->client_sk = client_sk;
         retv = socket_read(packet->client_sk, &packet->req_buf, &packet->req_buflen);
         if (retv < 0)
-        {
-            NETKIT_LOG("[!] failed to read buffer from connection\n");
-            goto LAB_CONN_OUT;
-        }
+            goto LAB_CONN_ERR;
 
         if (packet->req_buflen == 0)
         {
             NETKIT_LOG("[!] got 0 bytes from connection. giving no reply\n");
-            goto LAB_CONN_OUT;
+            goto LAB_CONN_ERR;
         }
-
 
         kthread_name_id = (int)get_random_long();
         sscanf(kthread_name, "netkit-conn-handler-%08x", &kthread_name_id);
@@ -132,19 +122,22 @@ static int server_conn_loop(void* args)
         // child should free packet
         conn_task = kthread_run(server_conn_handler, packet, kthread_name);
         if (IS_ERR(conn_task))
-            goto LAB_CONN_OUT;
+            goto LAB_CONN_ERR;
 
+LAB_CONN_REITER:
+        schedule_timeout_interruptible(HZ / 10);  // 100ms check rate
         continue;
 
-LAB_CONN_OUT:
+LAB_CONN_ERR:
         if (packet->req_buf)
             kzfree(packet->req_buf, packet->req_buflen);
 
         kzfree(packet, sizeof(*packet));
         packet = NULL;
-LAB_CONN_OUT_NO_PACKET:
+LAB_CONN_ERR_NO_PACKET:
         sock_release(client_sk);
         client_sk = NULL;
+        goto LAB_CONN_REITER;
     }
 
     NETKIT_LOG("[*] conn loop received kthread_stop...\n");
