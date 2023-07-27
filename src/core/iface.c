@@ -28,8 +28,10 @@ int core_process(const u8 *req_buf, size_t req_buflen, struct raw_packet_res **r
     }
     
     retv = auth_process(packet_req);
-    if (retv < 0)
+    if (retv == -EKEYREJECTED)
     {
+        return -255;
+    } else if (retv < 0) {
         NETKIT_LOG("[!] failed to authenticate\n");
         domain = STAT_DOM_AUTH;
 

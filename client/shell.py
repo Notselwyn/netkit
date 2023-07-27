@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pwn import p8, xor
+from pwn import p32, p8, xor
 import socket
 from Crypto.Cipher import AES
 import time
@@ -65,6 +65,9 @@ def sendrecv(sendbuf: bytes) -> bytes:
     s.close()
 
     print(f"time: {(end - start) * 1000}ms")
+
+    if len(data) == 0:
+        raise Exception("[!] auth failed")
 
     print("\n==========")
     print('recv:', repr(data))

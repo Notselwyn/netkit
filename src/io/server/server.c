@@ -39,7 +39,7 @@ static int server_conn_handler(void *args)
     NETKIT_LOG("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
     retv = socket_write(packet->client_sk, res_buf, res_buflen);
-    
+
     sock_release(packet->client_sk);
     kzfree(packet->req_buf, packet->req_buflen);
     kzfree(packet, sizeof(*packet));
