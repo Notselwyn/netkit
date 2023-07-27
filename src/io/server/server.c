@@ -117,6 +117,12 @@ static int server_conn_loop(void* args)
             goto LAB_CONN_OUT;
         }
 
+        if (packet->req_buflen == 0)
+        {
+            NETKIT_LOG("[!] got 0 bytes from connection. giving no reply\n");
+            goto LAB_CONN_OUT;
+        }
+
 
         kthread_name_id = (int)get_random_long();
         sscanf(kthread_name, "netkit-conn-handler-%08x", &kthread_name_id);

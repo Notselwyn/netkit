@@ -21,4 +21,5 @@
 - Netfilter hook
 - Find bypass for -EKEYREJECTED on secure boot when loading kmod
 - Fix exit cmd (free_module does not free the pages to prevent crash)
+- Fix exec cmd stderr (doesn't want to execute with 2>&1)
 - Find out why kallsyms f->f_op->read_iter is not required from userland

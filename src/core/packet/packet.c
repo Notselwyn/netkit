@@ -47,7 +47,7 @@ struct packet_req *packet_req_init(const struct raw_packet_req *buffer, size_t c
     packet->cmd_id = buffer->cmd_id;
     packet->content_len = count - packet_header_len;
 
-    if (packet->content_len - 1 == 0)
+    if (packet->content_len == 0)
         return packet;
 
     // create content if necessary
