@@ -64,7 +64,6 @@ static int server_conn_loop(void* args)
     struct sockaddr_in *server_addr;
     struct socket *client_sk;
     struct server_conn *conn_data;
-    int conn_retv;
     int retv;
 
     kref_get(&active_conns);
@@ -93,8 +92,8 @@ static int server_conn_loop(void* args)
 			continue;
 
         // use non-blocking socket to be able to respond to kthread_should_stop() and properly clean sockets
-        conn_retv = kernel_accept(server_sk, &client_sk, SOCK_NONBLOCK);
-        if (likely(conn_retv == -EAGAIN) || conn_retv < 0)
+        retv = kernel_accept(server_sk, &client_sk, SOCK_NONBLOCK);
+        if (likely(retv < 0))
             goto LAB_CONN_REITER;
 
         NETKIT_LOG("[+] received connection\n");
