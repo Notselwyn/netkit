@@ -13,8 +13,7 @@
         - Preventing this would make the code a mess, so we sarcrifice space complexity for readability (and hence security).
 
 ### TODO
-- Implement AES-256-CBC decryption
-- Replace password hash check loop with memcmp
+- Make plans for how Netkit can be used, and if there will be a toolsuite
 - Implement PCR allocate command
 - Implement ko hotswap
 - Implement recipes
