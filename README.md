@@ -7,10 +7,12 @@ To run the rootkit, optionally tweak it in the configurations, build it using `m
 
 If `CONFIG_NETKIT_DEBUG` is enabled, then stealth mode is enabled and the rootkit can only be stopped using the self destruct / exit cmd (not using rmmod).
 
+Make sure to set $KERNEL_DIR to your kernels' hedaer files, like `KERNEL_DIR=/usr/src/linux-headers-$(uname -r)`
+
 ```bash
 git clone https://github.com/notselwyn/netkit/
 cd netkit
-make
+make KERNEL_DIR=$KERNEL_DIR
 
 ls -la netkit.ko
 ```
