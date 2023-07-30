@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
 
 #include "task.h"
 

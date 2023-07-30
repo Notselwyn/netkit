@@ -1,6 +1,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <crypto/aes.h>
+#include <linux/random.h>
 
 #include "crypto.h"
 

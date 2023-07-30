@@ -226,7 +226,7 @@ int server_exit(void)
         if (retv < 0)
             NETKIT_LOG("[!] kthread stop returned error\n");
     } else {
-        NETKIT_LOG("[-] conn loop is not running (state: %d)\n", TASK_STATE(task_conn_loop));
+        NETKIT_LOG("[-] conn loop is not running\n");
     }
 
     // block until all kthreads (including conn loop) are handled
