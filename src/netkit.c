@@ -14,7 +14,7 @@ static int netkit_main(void* args)
     DECLARE_WAIT_QUEUE_HEAD(mod_state_wait_queue);
     int retv;
 
-    pr_err("[+] module started (debug: %d)\n", CONFIG_NETKIT_DEBUG);
+    NETKIT_LOG("[+] module started (debug: %d)\n", CONFIG_NETKIT_DEBUG);
 
 #if CONFIG_NETKIT_STEALTH
     NETKIT_LOG("[*] waiting for module to be ready...\n");
