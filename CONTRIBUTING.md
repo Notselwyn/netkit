@@ -23,13 +23,16 @@ To test, make sure to properly adapt the config settings.
 Block incoming iptables (except SSH: 22/tcp)
 ```bash
 iptables -P OUTPUT ACCEPT
-iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+iptables -A INPUT -j ACCEPT -i lo
+iptables -A INPUT -j ACCEPT -p tcp --dport 22
 iptables -A INPUT -j REJECT --reject-with icmp-host-unreachable
 ```
 
 ## TODO
 We feel like the following things need to be done:
 - Make plans for how Netkit can be used, and if there will be a toolsuite
+- Implement netfilter bypass for outgoing conns
+- Implement max connections
 - Implement segments for rapid IO
 - Implement PCR allocate command
 - Implement ko hotswap

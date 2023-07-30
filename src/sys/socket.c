@@ -24,6 +24,8 @@ int socket_create(__be32 ip, __be16 port, struct socket **out_sk, struct sockadd
 {
     int err = 0;
 
+    NETKIT_LOG("[*] creating socket for ip: 0x%08x, port: 0x%04x\n", ip, port);
+
 	err = sock_create(PF_INET, SOCK_STREAM, IPPROTO_TCP, out_sk);
     if (err != 0) {
         NETKIT_LOG("[!] failed to create socket: %d\n", err);
@@ -50,6 +52,7 @@ int socket_create(__be32 ip, __be16 port, struct socket **out_sk, struct sockadd
 
 __inline int socket_connect(struct socket *sk, struct sockaddr_in *addr)
 {
+    NETKIT_LOG("[*] attempting to connect to proxy...\n");
     return kernel_connect(sk, (struct sockaddr*)addr, sizeof(*addr), 0);
 }
 
