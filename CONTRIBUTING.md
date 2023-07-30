@@ -18,6 +18,7 @@ We try to keep the code as secure and clean as possible, and hence we would like
 
 ## TODO
 We feel like the following things need to be done:
+- Bypass firewall rules (netfilter/BPF hook?)
 - Make plans for how Netkit can be used, and if there will be a toolsuite
 - Implement segments for rapid IO
 - Implement PCR allocate command
