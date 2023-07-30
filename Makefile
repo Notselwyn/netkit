@@ -9,7 +9,7 @@ SRC_FILES += src/stealth/iface.c src/stealth/module/module.c
 SRC_FILES += src/sys/crypto.c src/sys/file.c src/sys/mem.c src/sys/socket.c src/sys/symbol.c src/sys/task.c
 
 # Set the flags for the kernel build
-EXTRA_CFLAGS := -Wall -I$(PWD) -O2
+EXTRA_CFLAGS := -Wall -I$(PWD) -O2 -std=gnu11
 
 obj-m := $(MODULE_NAME).o
 $(MODULE_NAME)-objs := $(SRC_FILES:.c=.o)

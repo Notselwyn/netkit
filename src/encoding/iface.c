@@ -18,7 +18,7 @@ static __inline int enc_last_process(size_t index, const u8 *req_buf, size_t req
 #if CONFIG_NETKIT_DEBUG
 int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    const int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
+    int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
         enc_aes_process,
         enc_xor_process,
         enc_last_process
@@ -47,7 +47,7 @@ int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **
 #else 
 __inline int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    const int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
+    int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
         enc_aes_process,
         enc_xor_process,
         enc_last_process

