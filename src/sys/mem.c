@@ -8,7 +8,12 @@
 void *kzmalloc(size_t size, int flags)
 {
     // use ERR_PTR for back compat
-    void *buf = kcalloc(1, size, flags);
+    void *buf;
+    
+    if (size == 0)
+        return ERR_PTR(-EINVAL);
+
+    buf = kcalloc(1, size, flags);
     if (!buf)
         return ERR_PTR(-ENOMEM);
 

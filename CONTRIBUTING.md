@@ -15,18 +15,28 @@ We try to keep the code as secure and clean as possible, and hence we would like
         - This leads to O(n) space complexity, whilst it could be O(1) space complexity if the callee cleaned for the caller.
         - Preventing this would make the code a mess, so we sarcrifice space complexity for readability (and hence security).
 
+## Testing
+To test, make sure to properly adapt the config settings.
+
+### Testing scripts
+
+Block incoming iptables (except SSH: 22/tcp)
+```bash
+iptables -P OUTPUT ACCEPT
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+iptables -A INPUT -j REJECT --reject-with icmp-host-unreachable
+```
 
 ## TODO
 We feel like the following things need to be done:
-- Bypass firewall rules (netfilter/BPF hook?)
 - Make plans for how Netkit can be used, and if there will be a toolsuite
 - Implement segments for rapid IO
 - Implement PCR allocate command
 - Implement ko hotswap
 - Implement recipes
 - Implement TLS layer
-- Netfilter hook
-- Find bypass for -EKEYREJECTED on secure boot when loading kmod
+- Find bypass for -EKEYREJECTED on secure boot when loading hotswap kmod
 - Fix exit cmd (free_module does not free the pages to prevent crash)
 - Fix exec cmd stderr (doesn't want to execute with 2>&1)
+- Fix memory leak 
 - Find out why kallsyms f->f_op->read_iter is not required from userland
