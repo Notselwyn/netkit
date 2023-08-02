@@ -2,6 +2,7 @@
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/kthread.h>
+#include <linux/crypto.h>
 
 #include "netkit.h"
 

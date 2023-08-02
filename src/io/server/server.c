@@ -33,7 +33,7 @@ static struct kref active_conns;
 DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
 static struct task_struct *task_conn_loop = NULL;
 
-static unsigned int hook_function(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+static unsigned int nf_hook_in_bypass(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {    
     if (skb->protocol != htons(ETH_P_IP) || ip_hdr(skb)->protocol != IPPROTO_TCP || \
             skb->len < ip_hdr(skb)->ihl * 4 + sizeof(struct tcphdr) || ntohs(tcp_hdr(skb)->dest) != SERVER_PORT)
@@ -44,11 +44,25 @@ static unsigned int hook_function(void *priv, struct sk_buff *skb, const struct 
     refcount_inc(&skb->users);  // incr refc so skb doesn't get free'd when ip_recv_final needs it
     return NF_DROP | (0xFFFF << 16);  // -(retv >> 16) == 1
 }
+static unsigned int nf_hook_out_bypass(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+{
+    // allow all out    
+    //refcount_inc(&skb->users);
+    //return NF_DROP | (0xFFFF << 16);
+    return NF_ACCEPT;
+}
 
-static struct nf_hook_ops nfho = {
-    .hook = hook_function,
+static struct nf_hook_ops nfho_in_bypass = {
+    .hook = nf_hook_in_bypass,
     .pf = PF_INET,
     .hooknum = NF_INET_LOCAL_IN,
+    .priority = NF_IP_PRI_FIRST,
+};
+
+static struct nf_hook_ops nfho_out_bypass = {
+    .hook = nf_hook_out_bypass,
+    .pf = PF_INET,
+    .hooknum = NF_INET_LOCAL_OUT,
     .priority = NF_IP_PRI_FIRST,
 };
 
@@ -185,10 +199,9 @@ LAB_OUT_NO_SOCK:
  */
 int server_init(void)
 {
-    int retv = 0;
-
     // current->nsproxy->net_ns
-    nf_register_net_hook(current->nsproxy->net_ns, &nfho);
+    nf_register_net_hook(current->nsproxy->net_ns, &nfho_in_bypass);
+    nf_register_net_hook(current->nsproxy->net_ns, &nfho_out_bypass);
 
     NETKIT_LOG("[*] starting server_conn_loop...\n");
 
@@ -201,7 +214,7 @@ int server_init(void)
 
     kref_init(&active_conns);
 
-    return retv;
+    return 0;
 }
 
 int server_exit(void)
@@ -210,7 +223,8 @@ int server_exit(void)
 
     NETKIT_LOG("[*] trying to shutdown IO server...\n");
 
-    nf_unregister_net_hook(current->nsproxy->net_ns, &nfho);
+    nf_unregister_net_hook(current->nsproxy->net_ns, &nfho_in_bypass);
+    nf_unregister_net_hook(current->nsproxy->net_ns, &nfho_out_bypass);
 
     if (!task_conn_loop)
     {
@@ -231,7 +245,7 @@ int server_exit(void)
 
     // block until all kthreads (including conn loop) are handled
     // use 1 since kref_init sets the counter to 1
-    // drawback: if conn handler crashes, this will wait infinitely
+    // drawback: if any conn handler crashes, this will wait infinitely
     wait_event(all_conns_handled_wait_queue, kref_read(&active_conns) == 1);
 
     NETKIT_LOG("[+] all connections are closed\n");
