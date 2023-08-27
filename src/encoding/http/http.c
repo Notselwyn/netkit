@@ -4,7 +4,6 @@
 
 #include "../../sys/crypto.h"
 #include "../../sys/mem.h"
-#include "../iface.h"
 
 #include "http.h"
 
@@ -113,7 +112,7 @@ LAB_ERR_NO_RES_BUF:
     return set_http_unproc(res_buf, res_buflen);
 }
 
-static int enc_http_encode(unsigned int status_code, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static int enc_http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, unsigned int status_code)
 {    
     switch (status_code)
     {
@@ -137,15 +136,14 @@ int enc_http_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t 
     retv = enc_http_decode(req_buf, req_buflen, &decoded_buf, &decoded_buflen);
     if (retv < 0)
     {
-        enc_http_encode(HTTP_STAT_UNPROC, NULL, 0, res_buf, res_buflen);
+        enc_http_encode(NULL, 0, res_buf, res_buflen, HTTP_STAT_UNPROC);
         return retv;
     }
 
     call_next_encoding(decoded_buf, decoded_buflen, &next_res_buf, &next_res_buflen, index+1);
     kzfree(decoded_buf, decoded_buflen);
 
-
-    retv = enc_http_encode(HTTP_STAT_OK, next_res_buf, next_res_buflen, res_buf, res_buflen);
+    retv = enc_http_encode(next_res_buf, next_res_buflen, res_buf, res_buflen, HTTP_STAT_OK);
     kzfree(next_res_buf, next_res_buflen);
 
     if (retv < 0)

