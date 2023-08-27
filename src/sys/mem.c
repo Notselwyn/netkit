@@ -5,13 +5,10 @@
 
 #include "mem.h"
 
-void *kzmalloc(size_t size, int flags)
+void *_do_kzmalloc(size_t size, int flags)
 {
     // use ERR_PTR for back compat
     void *buf;
-    
-    if (size == 0)
-        return ERR_PTR(-EINVAL);
 
     buf = kcalloc(1, size, flags);
     if (!buf)
@@ -20,23 +17,26 @@ void *kzmalloc(size_t size, int flags)
     return buf;
 }
 
-void kzfree(void* var, size_t size)
+void _do_kzfree(void* buf, size_t size)
 {
-    memset(var, '\x00', size);
-    kfree(var);
+    if (buf == NULL)
+        return;
+
+    memset(buf, '\x00', size);
+    kfree(buf);
 }
 
+// don't do checks as macro, since kzrealloc will never be used with hardcoded values
 void *kzrealloc(void* buf_old, size_t size_old, size_t size_new)
 {
     void *buf_new;
 
-    if (!buf_old || size_old > size_new)
-        return ERR_PTR(-EINVAL);
-
-    if (size_old == size_new)
+    if (buf_old == NULL || size_old > size_new || size_new == 0) 
+        return ERR_PTR(-EINVAL); 
+    else if (size_old == size_new) 
         return buf_old;
 
-    buf_new = kzmalloc(size_new, GFP_KERNEL);
+    buf_new = _do_kzmalloc(size_new, GFP_KERNEL);
     if (IS_ERR(buf_new))
         return buf_new;
 

@@ -24,7 +24,7 @@ static int gen_xor_key(u8 *key, size_t keylen, size_t buflen, u8 **out_buf)
 
 #define XOR_KEY "NETKIT_XOR"
 
-int enc_xor_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+int enc_xor_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
 {
     u8* next_req_buf = NULL;
     size_t next_req_buflen = 0;
@@ -45,7 +45,7 @@ int enc_xor_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res
         goto LAB_OUT;
     }
     
-    call_next_encoding(index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
+    call_next_encoding(next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen, index+1);
 
     // reset next_req_buf{len}
     kzfree(next_req_buf, next_req_buflen);

@@ -9,7 +9,7 @@
 
 #define AES_KEY "AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD"
 
-int enc_aes_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+int enc_aes_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
 {
     u8* next_req_buf = NULL;
     size_t next_req_buflen = 0;
@@ -24,7 +24,7 @@ int enc_aes_process(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res
         goto LAB_OUT;
     }
     
-    call_next_encoding(index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
+    call_next_encoding(next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen, index+1);
 
     // reset next_req_buf{len}
     kzfree(next_req_buf, next_req_buflen);
