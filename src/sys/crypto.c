@@ -266,3 +266,65 @@ LAB_OUT:
 LAB_OUT_NO_DECRYPT:
     return retv;
 }
+
+int hex_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+{
+    int retv;
+
+    if (req_buflen == 0 || req_buflen % 2 != 0)
+        return -EINVAL;
+
+    *res_buflen = req_buflen / 2;
+    *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
+    if (IS_ERR(*res_buf))
+    {
+        retv = PTR_ERR(*res_buf);
+        *res_buflen = 0;
+        *res_buf = NULL;
+        return retv;
+    }
+
+    for (size_t i = 0; i < *res_buflen; i++) 
+    {
+        if (sscanf(&req_buf[i*2], "%02hhx", &(*res_buf)[i]) != 1)
+        {
+            kzfree(*res_buf, *res_buflen);
+            *res_buf = NULL;
+            *res_buflen = 0;
+            return -EPROTO;
+        }
+    }
+
+    return 0;
+}
+
+int hex_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+{
+    int retv;
+
+    if (req_buflen == 0)
+        return -EINVAL;
+
+    *res_buflen = req_buflen * 2;
+    *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
+    if (IS_ERR(*res_buf))
+    {
+        retv = PTR_ERR(*res_buf);
+        *res_buflen = 0;
+        *res_buf = NULL;
+        return retv;
+    }
+
+    for (size_t i = 0; i < req_buflen; i++) 
+    {
+        if (sprintf(&(*res_buf)[i*2], "%02hhx", req_buf[i]) != 2)
+        {
+            kzfree(*res_buf, *res_buflen);
+            *res_buf = NULL;
+            *res_buflen = 0;
+            return -EPROTO;
+        }
+    }
+
+    return 0;
+}

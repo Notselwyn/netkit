@@ -5,6 +5,7 @@
 
 #include "xor/xor.h"
 #include "aes/aes.h"
+#include "http/http.h"
 
 #include "../core/iface.h"
 #include "../sys/mem.h"
@@ -19,8 +20,9 @@ static __inline int enc_last_process(size_t index, const u8 *req_buf, size_t req
 int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     int (*ENC_FUNCTIONS[])(size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen) = {
-        enc_aes_process,
-        enc_xor_process,
+        //enc_aes_process,
+        //enc_xor_process,
+        enc_http_process,
         enc_last_process
     };
 
@@ -38,7 +40,7 @@ int call_next_encoding(size_t index, const u8 *req_buf, size_t req_buflen, u8 **
 
     NETKIT_LOG("[*] calling '%s' (req_buflen: %lu)\n", sym_name, req_buflen);
     retv = ENC_FUNCTIONS[index](index, req_buf, req_buflen, res_buf, res_buflen);
-    NETKIT_LOG("[+] returned '%s' (res_buflen: %lu)\n", sym_name, *res_buflen);
+    NETKIT_LOG("[+] returned '%s' (res_buflen: %lu, retv: %d)\n", sym_name, *res_buflen, retv);
 
     kzfree(sym_name, 1024);
 
