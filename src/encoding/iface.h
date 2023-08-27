@@ -20,9 +20,9 @@ static inline int enc_last_process(const u8 *req_buf, size_t req_buflen, u8 **re
 }
 
 static int (*ENC_FUNCTIONS[])(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index) = {
-    //enc_aes_process,
-    enc_xor_process,
     enc_http_process,
+    enc_aes_process,
+    enc_xor_process,
     enc_last_process
 };
 

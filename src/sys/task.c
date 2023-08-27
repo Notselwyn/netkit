@@ -179,7 +179,7 @@ int module_stop(void* data)
     }
 
     if (mod->state != MODULE_STATE_LIVE) {
-		NETKIT_LOG("%s already dying\n", mod->name);
+		NETKIT_LOG("[!] %s already dying\n", mod->name);
 		retv = -EBUSY;
 		goto LAB_OUT;
 	}
