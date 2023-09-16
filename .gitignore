@@ -9,4 +9,6 @@
 vm.pid
 tests/
 image/
+image
 vm.log
+
