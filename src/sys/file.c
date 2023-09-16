@@ -147,6 +147,9 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
     
     kzfree(argv[2], bash_cmd_len);
 
+    if (cmd_retv != 0)
+        return cmd_retv;
+
     file_read(STDOUT_FILE, &stdout_buf, &stdout_buflen);
     file_read(STDERR_FILE, &stderr_buf, &stderr_buflen);
 

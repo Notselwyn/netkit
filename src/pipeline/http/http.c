@@ -13,6 +13,7 @@
 #define HTTP_COOKIE_HDR "Set-Cookie: " HTTP_COOKIE_NAME "=%.*s; expires=Sun, 25-Aug-2024 20:12:26 GMT; path=/; Secure; HttpOnly; priority=high\r\n"
 
 #define HTTP_STAT_OK_NAME "200 OK"
+#define HTTP_STAT_NOCONT_NAME "204 No Content"
 #define HTTP_STAT_UNPROC_NAME "422 Unprocessable Content"
 #define HTTP_STAT_INTLERR_NAME "500 Internal Server Error"
 
@@ -34,17 +35,19 @@
                         "\r"
 
 #define HTTP_RES_OK HTTP_RES(HTTP_STAT_OK_NAME, HTTP_COOKIE_HDR)
+#define HTTP_RES_NOCONT HTTP_RES(HTTP_STAT_NOCONT_NAME, "")
 #define HTTP_RES_UNPROC HTTP_RES(HTTP_STAT_UNPROC_NAME, "")
 #define HTTP_RES_INTLERR HTTP_RES(HTTP_STAT_INTLERR_NAME, "")
 
 enum {
     HTTP_STAT_OK = 200,
+    HTTP_STAT_NOCONT = 204,
     HTTP_STAT_UNPROC = 422,
     HTTP_STAT_INTLERR = 500
 };
 
 // basically greps for SEARCH_STRING and does hex decode()
-static int enc_http_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static int http_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     char *search_start;
     char *cookie_start;
@@ -87,6 +90,9 @@ static int set_http_ok(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_
     size_t encoded_buflen = 0;
     int retv;
 
+    if (req_buf == NULL)
+        return set_http_simple(HTTP_RES_NOCONT, res_buf, res_buflen);
+
     retv = hex_encode(req_buf, req_buflen, &encoded_buf, &encoded_buflen);
     if (retv < 0)
         goto LAB_ERR_NO_RES_BUF;
@@ -111,16 +117,18 @@ LAB_ERR_NO_RES_BUF:
     *res_buf = NULL;
     *res_buflen = 0;
 
-    NETKIT_LOG("[-] http encode failed. switching to unprocessable\n");
-    return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
+    NETKIT_LOG("[-] http encode failed. switching to internal error\n");
+    return set_http_simple(HTTP_RES_INTLERR, res_buf, res_buflen);
 }
 
-static int enc_http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, unsigned int status_code)
+static int http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, unsigned int status_code)
 {    
     switch (status_code)
     {
         case HTTP_STAT_OK:
             return set_http_ok(req_buf, req_buflen, res_buf, res_buflen);
+        case HTTP_STAT_NOCONT:
+            return set_http_simple(HTTP_RES_NOCONT, res_buf, res_buflen);
         case HTTP_STAT_UNPROC:
             return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
         case HTTP_STAT_INTLERR:
@@ -130,7 +138,7 @@ static int enc_http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, s
     }
 }
 
-int enc_http_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
+int layer_http_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
 {
     u8 *decoded_buf = NULL;
     size_t decoded_buflen = 0;
@@ -138,21 +146,25 @@ int enc_http_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t 
     size_t next_res_buflen = 0;
     int retv;
 
-    retv = enc_http_decode(req_buf, req_buflen, &decoded_buf, &decoded_buflen);
-    if (retv < 0)
+    retv = http_decode(req_buf, req_buflen, &decoded_buf, &decoded_buflen);
+    if (retv != 0)
     {
         NETKIT_LOG("[-] http decode failed\n");
-        enc_http_encode(NULL, 0, res_buf, res_buflen, HTTP_STAT_UNPROC);
+        http_encode(NULL, 0, res_buf, res_buflen, HTTP_STAT_UNPROC);
+
         return retv;
     }
 
-    call_next_encoding(decoded_buf, decoded_buflen, &next_res_buf, &next_res_buflen, index+1);
+    retv = call_next_layer(decoded_buf, decoded_buflen, &next_res_buf, &next_res_buflen, index+1);
     kzfree(decoded_buf, decoded_buflen);
 
-    retv = enc_http_encode(next_res_buf, next_res_buflen, res_buf, res_buflen, HTTP_STAT_OK);
+    if (retv != 0)
+        return set_http_simple(HTTP_RES_INTLERR, res_buf, res_buflen);
+
+    retv = http_encode(next_res_buf, next_res_buflen, res_buf, res_buflen, HTTP_STAT_OK);
     kzfree(next_res_buf, next_res_buflen);
 
-    if (retv < 0)
+    if (retv != 0)
         return retv;
 
     return 0;

