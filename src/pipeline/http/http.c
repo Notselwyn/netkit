@@ -138,7 +138,7 @@ static int http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_
     }
 }
 
-int layer_http_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
+int layer_http_process(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     u8 *decoded_buf = NULL;
     size_t decoded_buflen = 0;
@@ -155,7 +155,7 @@ int layer_http_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_
         return retv;
     }
 
-    retv = call_next_layer(decoded_buf, decoded_buflen, &next_res_buf, &next_res_buflen, index+1);
+    retv = call_next_layer(pipeline_funcs, index+1, decoded_buf, decoded_buflen, &next_res_buf, &next_res_buflen);
     kzfree(decoded_buf, decoded_buflen);
 
     if (retv != 0)

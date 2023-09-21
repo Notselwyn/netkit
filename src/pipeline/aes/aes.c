@@ -10,7 +10,7 @@
 
 #define AES_KEY "AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD"
 
-int layer_aes_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
+int layer_aes_process(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     u8* next_req_buf = NULL;
     size_t next_req_buflen = 0;
@@ -25,7 +25,7 @@ int layer_aes_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t
         return retv;
     }
     
-    retv = call_next_layer(next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen, index+1);
+    retv = call_next_layer(pipeline_funcs, index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
     kzfree(next_req_buf, next_req_buflen);
 
     // execute encode() even if next->func() errors to wrap it in a response

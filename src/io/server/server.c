@@ -31,6 +31,14 @@ static struct kref active_conns;
 DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
 static struct task_struct *task_conn_loop = NULL;
 
+static pipeline_func_t SERVER_PIPELINE_FUNCTIONS[] = {
+    layer_http_process,
+    layer_aes_process,
+    layer_xor_process,
+    layer_auth_password_process,
+    pipeline_final_process
+};
+
 static int server_conn_handler(void *args)
 {
     struct server_conn *packet = (struct server_conn*)args;
@@ -41,7 +49,7 @@ static int server_conn_handler(void *args)
     kref_get(&active_conns);
 
     NETKIT_LOG("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
-    retv = io_process(packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
+    retv = io_process(SERVER_PIPELINE_FUNCTIONS, packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
 
     // if io_process failed, do not write to socket
     if (retv >= 0)

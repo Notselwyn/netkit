@@ -4,6 +4,8 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 
+#include "debug.h"
+
 void *_do_kzmalloc(size_t size, int flags);
 void _do_kzfree(void* buf, size_t size);
 void *kzrealloc(void* buf_old, size_t size_old, size_t size_new);
@@ -18,8 +20,13 @@ static inline void *kzmalloc(size_t size, int flags)
 
 static inline void kzfree(void* buf, size_t size)
 {
-    if (unlikely(size != 0))
-        _do_kzfree(buf, size);
+    if (unlikely(size == 0 || buf == NULL))
+    {
+        NETKIT_LOG("[-] tried to free size: %lu, buf: %px\n", size, buf);
+        return;
+    }
+
+    _do_kzfree(buf, size);
 }
 
 #endif
