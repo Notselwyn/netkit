@@ -9,23 +9,47 @@
 
 #define SHA256_DIGEST_SIZE 32
 
-int layer_auth_password_process(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+int layer_auth_password_decode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
 	uint8_t hash[SHA256_DIGEST_SIZE];
     size_t password_buflen;
+    int retv;
 
     // require null-byte at end of password
     password_buflen = strnlen(req_buf, req_buflen);
     if (password_buflen == req_buflen)
-        return -EINVAL;
+    {
+        retv = -EINVAL;
+        goto LAB_ERR;
+    }
 
     // does not include nullbyte
     NETKIT_LOG("[*] password: '%s'\n", req_buf);
     sha256(req_buf, password_buflen, hash);
 
     if (memcmp(CORRECT_HASH, hash, SHA256_DIGEST_SIZE) != 0)
-        return -EKEYREJECTED;
+    {
+        retv = -EKEYREJECTED;
+        goto LAB_ERR;
+    }
 
-    // allow OOB ptr with size 0
-    return call_next_layer(pipeline_funcs, index+1, req_buf + password_buflen + 1, req_buflen - password_buflen - 1, res_buf, res_buflen);
+    // just pull memory to keep buf ptr on slab base
+    req_buflen -= password_buflen + 1;
+    memmove(req_buf, req_buf + password_buflen + 1, req_buflen);
+
+    *res_buf = req_buf;
+    *res_buflen = req_buflen;
+
+    return 0;
+
+LAB_ERR:
+    kzfree(req_buf, req_buflen);
+    
+    return retv;
 }
+
+const struct pipeline_ops LAYER_PASSWORD_AUTH_OPS = {
+    .decode = layer_auth_password_decode,
+    .encode = NULL,
+    .handle_err = NULL
+};

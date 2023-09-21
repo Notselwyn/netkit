@@ -10,36 +10,42 @@
 
 #define AES_KEY "AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD"
 
-int layer_aes_process(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static int layer_aes_decode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    u8* next_req_buf = NULL;
-    size_t next_req_buflen = 0;
-    u8* next_res_buf = NULL;
-    size_t next_res_buflen = 0;
     int retv;
 
-    retv = aes256cbc_decrypt(AES_KEY, 32, req_buf, req_buflen, &next_req_buf, &next_req_buflen);
+    retv = aes256cbc_decrypt(AES_KEY, 32, req_buf, req_buflen, res_buf, res_buflen);
+    kzfree(req_buf, req_buflen);
+
     if (retv < 0)
-    {
-        NETKIT_LOG("[!] aes 1 failed\n");
         return retv;
-    }
-    
-    retv = call_next_layer(pipeline_funcs, index+1, next_req_buf, next_req_buflen, &next_res_buf, &next_res_buflen);
-    kzfree(next_req_buf, next_req_buflen);
-
-    // execute encode() even if next->func() errors to wrap it in a response
-    if (next_res_buf == NULL)
-        return retv;
-
-    retv = aes256cbc_encrypt(AES_KEY, 32, next_res_buf, next_res_buflen, res_buf, res_buflen);
-    if (retv < 0)
-    {
-        NETKIT_LOG("[!] aes 2 failed\n");
-        return retv;
-    }
-
-    kzfree(next_res_buf, next_res_buflen);
 
     return 0;
 }
+
+static int layer_aes_encode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+{
+    int retv;
+
+    if (req_buflen == 0)
+    {
+        *res_buf = req_buf;
+        *res_buflen = req_buflen;
+
+        return 0;
+    }
+    
+    retv = aes256cbc_encrypt(AES_KEY, 32, req_buf, req_buflen, res_buf, res_buflen);
+    kzfree(req_buf, req_buflen);
+
+    if (retv < 0)
+        return retv;
+
+    return 0;
+}
+
+const struct pipeline_ops LAYER_AES_OPS = {
+    .decode = layer_aes_decode, 
+    .encode = layer_aes_encode, 
+    .handle_err = NULL
+};

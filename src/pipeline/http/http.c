@@ -46,25 +46,6 @@ enum {
     HTTP_STAT_INTLERR = 500
 };
 
-// basically greps for SEARCH_STRING and does hex decode()
-static int http_decode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
-{
-    char *search_start;
-    char *cookie_start;
-    size_t cookie_size;
-
-    search_start = strnstr(req_buf, SEARCH_STRING, req_buflen);
-    if (search_start == NULL)
-        return -EINVAL;
-
-    cookie_start = search_start + strlen(SEARCH_STRING);
-
-    // strchr but with multiple chars, and stop when buflen is met
-    for (cookie_size = 0; (void*)(cookie_start + cookie_size) < (void*)(req_buf + req_buflen) && IS_HEX(cookie_start[cookie_size]); cookie_size++);
-
-    return hex_decode(cookie_start, cookie_size, res_buf, res_buflen);
-}
-
 static int set_http_simple(const char *res_content, u8 **res_buf, size_t *res_buflen)
 {
     int retv;
@@ -90,9 +71,6 @@ static int set_http_ok(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_
     size_t encoded_buflen = 0;
     int retv;
 
-    if (req_buf == NULL)
-        return set_http_simple(HTTP_RES_NOCONT, res_buf, res_buflen);
-
     retv = hex_encode(req_buf, req_buflen, &encoded_buf, &encoded_buflen);
     if (retv < 0)
         goto LAB_ERR_NO_RES_BUF;
@@ -100,7 +78,10 @@ static int set_http_ok(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_
     *res_buflen = strlen(HTTP_RES_OK) - 4 + encoded_buflen + 1;
     *res_buf = kzmalloc(*res_buflen, GFP_KERNEL);
     if (IS_ERR(*res_buf))
+    {
+        retv = PTR_ERR(*res_buf);
         goto LAB_ERR_NO_RES_BUF;
+    }
 
     retv = snprintf(*res_buf, *res_buflen, HTTP_RES_OK, (int)encoded_buflen, encoded_buf);
     kzfree(encoded_buf, encoded_buflen);
@@ -117,55 +98,63 @@ LAB_ERR_NO_RES_BUF:
     *res_buf = NULL;
     *res_buflen = 0;
 
-    NETKIT_LOG("[-] http encode failed. switching to internal error\n");
-    return set_http_simple(HTTP_RES_INTLERR, res_buf, res_buflen);
+    return retv;
 }
 
-static int http_encode(const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen, unsigned int status_code)
-{    
-    switch (status_code)
-    {
-        case HTTP_STAT_OK:
-            return set_http_ok(req_buf, req_buflen, res_buf, res_buflen);
-        case HTTP_STAT_NOCONT:
-            return set_http_simple(HTTP_RES_NOCONT, res_buf, res_buflen);
-        case HTTP_STAT_UNPROC:
-            return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
-        case HTTP_STAT_INTLERR:
-            return set_http_simple(HTTP_RES_INTLERR, res_buf, res_buflen);
-        default:
-            return -EINVAL;
-    }
-}
-
-int layer_http_process(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+static int layer_http_decode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
-    u8 *decoded_buf = NULL;
-    size_t decoded_buflen = 0;
-    u8 *next_res_buf = NULL;
-    size_t next_res_buflen = 0;
+    char *search_start;
+    char *cookie_start;
+    size_t cookie_size;
     int retv;
 
-    retv = http_decode(req_buf, req_buflen, &decoded_buf, &decoded_buflen);
-    if (retv != 0)
+    search_start = strnstr(req_buf, SEARCH_STRING, req_buflen);
+    if (search_start == NULL)
     {
-        NETKIT_LOG("[-] http decode failed\n");
-        http_encode(NULL, 0, res_buf, res_buflen, HTTP_STAT_UNPROC);
-
-        return retv;
+        retv = -EINVAL;
+        goto LAB_OUT;
     }
 
-    retv = call_next_layer(pipeline_funcs, index+1, decoded_buf, decoded_buflen, &next_res_buf, &next_res_buflen);
-    kzfree(decoded_buf, decoded_buflen);
+    cookie_start = search_start + strlen(SEARCH_STRING);
 
-    if (retv != 0)
-        return set_http_simple(HTTP_RES_INTLERR, res_buf, res_buflen);
+    // strchr but with multiple chars, and stop when buflen is met
+    for (cookie_size = 0; (void*)(cookie_start + cookie_size) < (void*)(req_buf + req_buflen) && IS_HEX(cookie_start[cookie_size]); cookie_size++);
 
-    retv = http_encode(next_res_buf, next_res_buflen, res_buf, res_buflen, HTTP_STAT_OK);
-    kzfree(next_res_buf, next_res_buflen);
+    retv = hex_decode(cookie_start, cookie_size, res_buf, res_buflen);
 
-    if (retv != 0)
+LAB_OUT:
+    kzfree(req_buf, req_buflen);
+
+    if (retv < 0)
         return retv;
 
     return 0;
 }
+
+static int layer_http_encode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
+{
+    int retv;
+
+    if (req_buflen == 0)
+        return set_http_simple(HTTP_RES_NOCONT, res_buf, res_buflen);
+
+    retv = set_http_ok(req_buf, req_buflen, res_buf, res_buflen);
+    kzfree(req_buf, req_buflen);
+
+    return retv;
+}
+
+static int layer_http_handle_err(int retv, u8 **res_buf, size_t *res_buflen)
+{
+    if (retv == -EINVAL)
+        return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
+
+    return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
+}
+
+
+const struct pipeline_ops LAYER_HTTP_OPS = {
+    .decode = layer_http_decode, 
+    .encode = layer_http_encode, 
+    .handle_err = layer_http_handle_err
+};

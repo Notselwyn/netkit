@@ -8,15 +8,21 @@
 #include "mem.h"
 #include "debug.h"
 
-static void do_xor_inplace(size_t len, const u8 *in_buf_1, const u8 *in_buf_2, u8 *out_buf)
+void xor_crypt_diff_size(const u8 *req_buf, size_t req_buflen, const u8 *key_buf, size_t key_buflen, u8 *out_buf)
+{
+    for (size_t i = 0; likely(i < req_buflen); i++)
+        out_buf[i] = req_buf[i % req_buflen] ^ key_buf[i % key_buflen];
+}
+
+static void do_xor_same_size(size_t len, const u8 *req_1_buf, const u8 *req_2_buf, u8 *out_buf)
 {
     size_t extra_len = len % 8;
     
     for (size_t i = 0; likely(i < len - extra_len); i += 8)
-        *(long*)&(out_buf[i]) = *(long*)&(in_buf_1[i]) ^ *(long*)&(in_buf_2[i]);
+        *(long*)&(out_buf[i]) = *(long*)&(req_2_buf[i]) ^ *(long*)&(req_1_buf[i]);
 
     for (size_t i = len - extra_len; likely(i < len); i++)
-        out_buf[i] = in_buf_1[i] ^ in_buf_2[i];
+        out_buf[i] = req_2_buf[i] ^ req_1_buf[i];
 }
 
 int xor_crypt(size_t req_buflen, const u8 *req_buf_1, const u8 *req_buf_2, u8 **res_buf, size_t *res_buflen)
@@ -32,7 +38,7 @@ int xor_crypt(size_t req_buflen, const u8 *req_buf_1, const u8 *req_buf_2, u8 **
         return PTR_ERR(*res_buf);
     }
 
-    do_xor_inplace(req_buflen, req_buf_1, req_buf_2, *res_buf);
+    do_xor_same_size(req_buflen, req_buf_1, req_buf_2, *res_buf);
 
     return 0;
 }
@@ -136,9 +142,9 @@ static int do_aes_cbc_encrypt(size_t block_size, const u8 *key, size_t keylen, c
     for (size_t block_index = 0; block_index < in_buflen; block_index += block_size) {
         // xor prev ct block (or IV) with pt block to get intermediate value to encrypt
         if (block_index > 0)
-            do_xor_inplace(block_size, &(*out_buf)[block_index - block_size], &in_buf[block_index], &(*out_buf)[block_index]);
+            do_xor_same_size(block_size, &(*out_buf)[block_index - block_size], &in_buf[block_index], &(*out_buf)[block_index]);
         else
-            do_xor_inplace(block_size, iv, &in_buf[block_index], &(*out_buf)[block_index]);
+            do_xor_same_size(block_size, iv, &in_buf[block_index], &(*out_buf)[block_index]);
 
         aes_encrypt(&ctx, &(*out_buf)[block_index], &(*out_buf)[block_index]);
     }
@@ -180,9 +186,9 @@ static int do_aes_cbc_decrypt(size_t block_size, const u8 *key, size_t keylen, c
 
         // xor prev ct block (or IV) with intermediate to get pt block
         if (block_index > 0)
-            do_xor_inplace(block_size, &in_buf[block_index - block_size], &(*out_buf)[block_index], &(*out_buf)[block_index]);
+            do_xor_same_size(block_size, &in_buf[block_index - block_size], &(*out_buf)[block_index], &(*out_buf)[block_index]);
         else
-            do_xor_inplace(block_size, iv, &(*out_buf)[block_index], &(*out_buf)[block_index]);
+            do_xor_same_size(block_size, iv, &(*out_buf)[block_index], &(*out_buf)[block_index]);
     }
 
     return 0;

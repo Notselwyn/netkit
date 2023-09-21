@@ -7,6 +7,7 @@
 
 void sha256(const u8 *data, unsigned int len, u8 *out);
 
-int layer_auth_password_process(pipeline_func_t *pipeline_funcs, size_t index, const u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen);
+
+extern const struct pipeline_ops LAYER_PASSWORD_AUTH_OPS;
 
 #endif

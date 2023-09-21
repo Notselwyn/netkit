@@ -21,7 +21,7 @@ CMD_EXIT = 4
 def xor_crypt(plaintext):
     print = lambda *x: ...
 
-    ciphertext = xor(plaintext, b"NETKIT_XOR")[:len(plaintext)]
+    ciphertext = xor(plaintext, b"NETKIT_XOR\x00")[:len(plaintext)]
     print('\nxor:', ciphertext)
 
     return ciphertext
@@ -149,7 +149,7 @@ def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
     if r.status_code == 500:
         retv = -1
     elif r.status_code == 422:
-        print("[!] invalid command sent by client")
+        print("[!] invalid packet sent by client (check config)")
     elif r.status_code == 200:
         start = r.headers['Set-Cookie'].index("SOCS") + 5
         end = r.headers['Set-Cookie'][start:].index(";") + 5

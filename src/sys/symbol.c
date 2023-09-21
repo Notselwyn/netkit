@@ -67,3 +67,24 @@ void *sym_lookup(const char* sym_name)
 
     return ret;
 }
+
+int sym_lookup_name(unsigned long symbol, char **res_buf, size_t *res_buflen)
+{
+    int retv;
+
+    // for some reason symbol names are this big???
+    *res_buf = kzmalloc(1024, GFP_KERNEL);
+    if (IS_ERR(*res_buf))
+    {
+        *res_buf = NULL;
+        return PTR_ERR(*res_buf);
+    }
+
+    retv = sprint_symbol(*res_buf, symbol);
+    if (retv < 0)
+        return retv;
+
+    *res_buflen = 1024;
+
+    return 0;
+}
