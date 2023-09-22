@@ -32,8 +32,8 @@ static int layer_xor_encode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t
 }
 
 const struct pipeline_ops LAYER_XOR_OPS = {
-    .encode = layer_xor_decode,
-    .decode = layer_xor_encode,
+    .decode = layer_xor_decode,
+    .encode = layer_xor_encode,
     .handle_err = NULL
 };
 
