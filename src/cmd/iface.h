@@ -32,6 +32,10 @@ static inline int cmd_process(u8 *req_buf, size_t req_buflen, u8 **res_buf, size
 
     NETKIT_LOG("[*] processing cmd: %hhd\n", cmd_id);
 
+    // output is not guaranteed for positive response, so force it to NULL/0
+    *res_buf = NULL;
+    *res_buflen = 0;
+
     // allow OOB ptr with size 0
     retv = NETKIT_PIPELINE_CALL(COMM_HANDLERS[cmd_id], req_buf + 1, req_buflen - 1, res_buf, res_buflen);
 

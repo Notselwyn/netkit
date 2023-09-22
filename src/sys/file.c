@@ -177,7 +177,7 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
         *out_buf = stderr_buf;
         *out_buflen = stderr_buflen;
     }
-
+    
     return cmd_retv;
 
 
