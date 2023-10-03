@@ -4,17 +4,16 @@
 #include "aes.h"
 
 #include "../iface.h"
+#include "../../netkit.h"
 #include "../../sys/crypto.h"
 #include "../../sys/debug.h"
 #include "../../sys/mem.h"
-
-#define AES_KEY "AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD"
 
 static int layer_aes_decode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t *res_buflen)
 {
     int retv;
 
-    retv = aes256cbc_decrypt(AES_KEY, 32, req_buf, req_buflen, res_buf, res_buflen);
+    retv = aes256cbc_decrypt(CONFIG_PIPELINE_AES_KEY, 32, req_buf, req_buflen, res_buf, res_buflen);
     kzfree(req_buf, req_buflen);
 
     if (retv < 0)
@@ -35,7 +34,7 @@ static int layer_aes_encode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_t
         return 0;
     }
     
-    retv = aes256cbc_encrypt(AES_KEY, 32, req_buf, req_buflen, res_buf, res_buflen);
+    retv = aes256cbc_encrypt(CONFIG_PIPELINE_AES_KEY, 32, req_buf, req_buflen, res_buf, res_buflen);
     kzfree(req_buf, req_buflen);
 
     if (retv < 0)

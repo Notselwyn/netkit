@@ -2,15 +2,15 @@
 #include <linux/string.h>
 #include <linux/base64.h>
 
+#include "../../netkit.h"
 #include "../../sys/crypto.h"
 #include "../../sys/mem.h"
 
 #include "http.h"
 
-#define HTTP_COOKIE_NAME "SOCS"
-#define SEARCH_STRING HTTP_COOKIE_NAME "="
+#define SEARCH_STRING CONFIG_PIPELINE_HTTP_COOKIE_NAME "="
 
-#define HTTP_COOKIE_HDR "Set-Cookie: " HTTP_COOKIE_NAME "=%.*s; expires=Sun, 25-Aug-2024 20:12:26 GMT; path=/; Secure; HttpOnly; priority=high\r\n"
+#define HTTP_COOKIE_HDR "Set-Cookie: " CONFIG_PIPELINE_HTTP_COOKIE_NAME "=%.*s; expires=Sun, 25-Aug-2024 20:12:26 GMT; path=/; Secure; HttpOnly; priority=high\r\n"
 
 #define HTTP_STAT_OK_NAME "200 OK"
 #define HTTP_STAT_NOCONT_NAME "204 No Content"
@@ -146,8 +146,8 @@ static int layer_http_encode(u8 *req_buf, size_t req_buflen, u8 **res_buf, size_
 
 static int layer_http_handle_err(int retv, u8 **res_buf, size_t *res_buflen)
 {
-    if (retv == -EINVAL)
-        return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
+    //if (retv == -EINVAL)
+    //    return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
 
     return set_http_simple(HTTP_RES_UNPROC, res_buf, res_buflen);
 }

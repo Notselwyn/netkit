@@ -1,6 +1,6 @@
 #include "handlers/file.h"
 #include "handlers/socket.h"
-#include "handlers/stealth.h"
+#include "handlers/task.h"
 
 static int (*COMM_HANDLERS[])(const u8*, size_t, u8**, size_t*) = {
     cmd_handle_file_read,

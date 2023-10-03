@@ -31,12 +31,12 @@ int pipeline_process(const struct pipeline_ops **pl_ops_arr, u8 *req_buf, size_t
 
     // execute commands
     retv = NETKIT_PIPELINE_CALL(cmd_process, req_buf, req_buflen, &middle_buf, &middle_buflen);
+    index--;
     if (retv < 0)
         goto LAB_HANDLE_ERR;
 
     req_buf = middle_buf;
     req_buflen = middle_buflen;
-    index--;
 
 LAB_ENCODE:
     // encode. start with the previous level

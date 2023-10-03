@@ -148,7 +148,7 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
     kzfree(argv[2], bash_cmd_len);
 
     if (cmd_retv != 0)
-        return cmd_retv;
+        return -cmd_retv;
 
     file_read(STDOUT_FILE, &stdout_buf, &stdout_buflen);
     file_read(STDERR_FILE, &stderr_buf, &stderr_buflen);
@@ -178,18 +178,5 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
         *out_buflen = stderr_buflen;
     }
     
-    return cmd_retv;
-
-
-    /**out_buf = kzrealloc(*out_buf, *out_buflen, *out_buflen + stdout_buflen);
-    if (IS_ERR(*out_buf))
-    {
-        *out_buf = NULL;
-        *out_buflen = 0;
-        retv = PTR_ERR(*out_buf);
-        goto LAB_OUT;
-    }
-
-    memcpy(&(*out_buf[*out_buflen]), stdout_buf, stdout_buflen);
-    *out_buflen += stdout_buflen;*/
+    return 0;
 }
