@@ -165,11 +165,14 @@ int file_exec(const char *cmd, u8 **out_buf, size_t *out_buflen)
 
         *out_buflen = stdout_buflen + stderr_buflen;
 
+        NETKIT_LOG("[*] file exec output buf: %px...\n", *out_buf);
         memcpy(*out_buf, stdout_buf, stdout_buflen);
-        memcpy(&(*out_buf[stdout_buflen]), stderr_buf, stderr_buflen);
+        memcpy(&(*out_buf)[stdout_buflen], stderr_buf, stderr_buflen);
 
+        NETKIT_LOG("[*] freeing buffers...\n");
         kzfree(stdout_buf, stdout_buflen);
         kzfree(stderr_buf, stderr_buflen);
+        NETKIT_LOG("[*] done freeing buffers...\n");
     } else if (stdout_buf) {
         *out_buf = stdout_buf;
         *out_buflen = stdout_buflen;

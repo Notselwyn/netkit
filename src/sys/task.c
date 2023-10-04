@@ -181,8 +181,12 @@ int module_stop(void* data)
 		goto LAB_OUT;
 	}
 
-	NETKIT_LOG("[*] trying to stop module...\n");
-    // just relying on struct mod*
+	NETKIT_LOG("[*] trying to stop module (checks module refs)...\n");
+    
+#if CONFIG_NETKIT_STEALTH
+	module_put(THIS_MODULE);
+#endif
+
     retv = try_stop_module(mod, 0, &forced);
 	if (retv != 0)
 		goto LAB_OUT;

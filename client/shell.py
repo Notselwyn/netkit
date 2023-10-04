@@ -151,11 +151,12 @@ def sendrecv(addr: tuple[str, int], sendbuf: bytes) -> bytes:
     elif r.status_code == 422:
         print("[!] invalid packet sent by client (check config)")
     elif r.status_code == 200:
-        start = r.headers['Set-Cookie'].index("SOCS") + 5
-        end = r.headers['Set-Cookie'][start:].index(";") + 5
-        data = r.headers['Set-Cookie'][start:end]
+        #start = r.headers['Set-Cookie'].index("SOCS") + 5
+        #end = r.headers['Set-Cookie'][start:].index(";") + 5
+        #data = r.headers['Set-Cookie'][start:end]
 
-        unhex_recvbuf = unhex(data)
+        unhex_recvbuf = unhex(r.content)
+        print(r.headers)
 
     return retv, unhex_recvbuf
 
